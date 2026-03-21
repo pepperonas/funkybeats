@@ -65,6 +65,7 @@
                         <button id="btn-pat-copy" class="tool-btn" title="Copy Pattern (Ctrl+C)">CPY</button>
                         <button id="btn-pat-paste" class="tool-btn" title="Paste Pattern (Ctrl+V)">PST</button>
                         <button id="btn-pat-clear" class="tool-btn" title="Clear Pattern">CLR</button>
+                        <button id="btn-pat-humanize" class="tool-btn" title="Humanize Velocity">HUM</button>
                     </div>
                 </div>
             </div>
@@ -153,7 +154,9 @@
                     <div class="pianoroll-divider"></div>
                     <button id="clear-notes" class="small-btn">Clear</button>
                     <div class="pianoroll-divider"></div>
-                    <span class="keyboard-hint">Keyboard: Z-M = Notes | Shift = Octave Up | Drag = Note Length</span>
+                    <button id="btn-pr-select" class="small-btn" title="Select Mode (Ctrl+C/V to copy/paste)">SEL</button>
+                    <div class="pianoroll-divider"></div>
+                    <span class="keyboard-hint">Keyboard: Z-M = Notes | Shift = Octave Up | Drag = Note Length | SEL = Select/Copy/Paste</span>
                 </div>
                 <div class="pianoroll-container">
                     <div class="piano-keys" id="piano-keys"></div>
@@ -237,23 +240,36 @@
                 </div>
             </section>
 
-            <!-- Song Mode -->
+            <!-- Song Mode / Arrangement View -->
             <section id="panel-songmode" class="panel">
                 <div class="song-editor">
                     <div class="song-toolbar">
-                        <button id="btn-song-add" class="small-btn">+ Add</button>
-                        <button id="btn-song-remove" class="small-btn">- Remove</button>
+                        <button id="btn-song-add" class="small-btn">+ 4 Bars</button>
+                        <button id="btn-song-remove" class="small-btn">- 4 Bars</button>
                         <button id="btn-song-clear" class="small-btn">Clear</button>
                         <div class="pianoroll-divider"></div>
                         <label>
-                            <input type="checkbox" id="song-loop"> Loop Song
+                            <input type="checkbox" id="song-loop"> Loop
                         </label>
                         <div class="pianoroll-divider"></div>
-                        <span class="song-info" id="song-info">0 patterns in chain</span>
+                        <span class="song-info" id="song-info">0 bars in arrangement</span>
                     </div>
-                    <div class="song-chain" id="song-chain"></div>
+                    <div class="arrangement-palette" id="arrangement-palette">
+                        <span class="arr-palette-label">Pattern:</span>
+                        <button class="arr-pat-btn active" data-pattern="0">1</button>
+                        <button class="arr-pat-btn" data-pattern="1">2</button>
+                        <button class="arr-pat-btn" data-pattern="2">3</button>
+                        <button class="arr-pat-btn" data-pattern="3">4</button>
+                        <button class="arr-pat-btn" data-pattern="4">5</button>
+                        <button class="arr-pat-btn" data-pattern="5">6</button>
+                        <button class="arr-pat-btn" data-pattern="6">7</button>
+                        <button class="arr-pat-btn" data-pattern="7">8</button>
+                    </div>
+                    <div class="arrangement-canvas-container">
+                        <canvas id="arrangement-canvas" width="1200" height="120"></canvas>
+                    </div>
                     <div class="song-help">
-                        Click a slot to cycle through patterns (1-8). The chain plays left to right in Song mode.
+                        Click to paint patterns | Right-click to clear | Drag to paint multiple bars | Select pattern above first
                     </div>
                 </div>
             </section>
@@ -310,7 +326,10 @@
         <footer id="status-bar">
             <span id="status-left">Ready</span>
             <span id="status-center"></span>
-            <span id="status-right">Ctrl+Z Undo | Ctrl+S Save | T Tap | Web Audio 44.1kHz</span>
+            <span id="status-right">
+                <button id="btn-help" class="status-help-btn" title="Keyboard Shortcuts (?)">?</button>
+                Ctrl+Z Undo | Ctrl+S Save | T Tap | Web Audio 44.1kHz
+            </span>
         </footer>
     </div>
 

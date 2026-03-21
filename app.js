@@ -5,6 +5,8 @@
 //        Velocity Lane, Automation, Metronome
 // Phase 2: Chord/Stab/Organ, Per-Channel EQ & Sends,
 //          Sample Playback, Note Glide
+// Phase 3: Arrangement View, Drag-to-Paint,
+//          Piano Roll Copy/Paste, Humanize, Help Modal
 // ============================================
 
 (() => {
@@ -996,6 +998,12 @@
     }
 
     // ---- Sequencer State ----
+    // Pattern colors for arrangement view
+    const PATTERN_COLORS = [
+        '#ff6b35', '#ffd93d', '#4fc3f7', '#bb86fc',
+        '#ff4757', '#00ff87', '#ff6bb5', '#64ffda'
+    ];
+
     class SequencerState {
         constructor() {
             this.patterns = [];
@@ -1004,6 +1012,8 @@
             this.redoStack = [];
             this.patternClipboard = null;
             this.songChain = [];
+            // Phase 3: Arrangement (1D array, each slot = pattern index or -1 for empty)
+            this.arrangement = [];
             this.initPatterns();
         }
 
@@ -1145,6 +1155,7 @@
             return {
                 patterns: JSON.parse(JSON.stringify(this.patterns)),
                 songChain: [...this.songChain],
+                arrangement: [...this.arrangement],
                 currentPattern: this.currentPattern
             };
         }
@@ -1159,6 +1170,9 @@
             }
             if (data.songChain) {
                 this.songChain = data.songChain;
+            }
+            if (data.arrangement) {
+                this.arrangement = data.arrangement;
             }
             if (typeof data.currentPattern === 'number') {
                 this.currentPattern = data.currentPattern;
@@ -1231,8 +1245,32 @@
             this.pianoRollDragNote = -1;
             this.pianoRollDragDuration = 1;
 
+            // Piano roll selection (Phase 3)
+            this.pianoRollSelMode = false;
+            this.pianoRollSelection = { active: false, startStep: 0, startNote: 0, endStep: 0, endNote: 0 };
+            this.pianoRollSelecting = false;
+            this.pianoRollNoteClipboard = null;
+            this.pianoRollLastClickStep = 0;
+            this.pianoRollLastClickNote = 48;
+
             // Velocity lane drag state
             this.velocityDragging = false;
+
+            // Drag-to-paint (Phase 3)
+            this.dragPainting = false;
+            this.dragPaintValue = false;
+            this.dragPaintChannel = -1;
+            this.dragPaintedSteps = new Set();
+
+            // Arrangement view (Phase 3)
+            this.arrangementCanvas = null;
+            this.arrangementCtx = null;
+            this.currentBar = 0;
+            this.arrangementSelectedPattern = 0;
+            this.arrangementPainting = false;
+
+            // Help modal (Phase 3)
+            this.helpModalOpen = false;
 
             // Synth editor
             this.synthEditorChannel = 0;
@@ -1279,6 +1317,7 @@
             this.buildSongChainUI();
             this.initPianoCanvas();
             this.initAutomationCanvas();
+            this.initArrangementCanvas();
             this.syncStepsDropdown();
         }
 
@@ -1646,27 +1685,108 @@
 
         buildSongChainUI() {
             this.updateSongChainDisplay();
+            this.drawArrangement();
         }
 
         updateSongChainDisplay() {
-            const container = document.getElementById('song-chain');
-            if (!container) return;
-            while (container.firstChild) container.removeChild(container.firstChild);
-            this.songSlotElements = [];
+            // Legacy song chain display is now hidden, arrangement canvas is primary
+            const info = document.getElementById('song-info');
+            if (info) {
+                const arr = this.state.arrangement;
+                const filledBars = arr.filter(v => v >= 0).length;
+                info.textContent = filledBars + ' bars in arrangement (' + arr.length + ' total)';
+            }
+            this.drawArrangement();
+        }
 
-            const chain = this.state.songChain;
-            for (let i = 0; i < chain.length; i++) {
-                const slot = el('div', { className: 'song-slot', text: String(chain[i] + 1) });
-                slot.dataset.index = i;
-                if (this.playing && this.playMode === 'song' && i === this.songChainIndex) {
-                    slot.classList.add('playing');
+        initArrangementCanvas() {
+            this.arrangementCanvas = document.getElementById('arrangement-canvas');
+            if (this.arrangementCanvas) {
+                this.arrangementCtx = this.arrangementCanvas.getContext('2d');
+                this.drawArrangement();
+            }
+        }
+
+        drawArrangement() {
+            if (!this.arrangementCtx || !this.arrangementCanvas) return;
+            const ctx = this.arrangementCtx;
+            const w = this.arrangementCanvas.width;
+            const h = this.arrangementCanvas.height;
+            const arr = this.state.arrangement;
+            const totalBars = Math.max(arr.length, 16);
+            const barW = w / totalBars;
+            const headerH = 20;
+            const trackH = h - headerH;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Background
+            ctx.fillStyle = '#0d0d1a';
+            ctx.fillRect(0, 0, w, h);
+
+            // Header background
+            ctx.fillStyle = '#151528';
+            ctx.fillRect(0, 0, w, headerH);
+
+            // Bar numbers and vertical lines
+            for (let b = 0; b < totalBars; b++) {
+                // Vertical grid
+                ctx.strokeStyle = b % 4 === 0 ? '#333355' : '#1a1a35';
+                ctx.lineWidth = b % 4 === 0 ? 1 : 0.5;
+                ctx.beginPath();
+                ctx.moveTo(b * barW, 0);
+                ctx.lineTo(b * barW, h);
+                ctx.stroke();
+
+                // Bar number
+                if (barW > 15 || b % 2 === 0) {
+                    ctx.fillStyle = '#666688';
+                    ctx.font = '9px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(String(b + 1), b * barW + barW / 2, 13);
                 }
-                this.songSlotElements.push(slot);
-                container.appendChild(slot);
             }
 
-            const info = document.getElementById('song-info');
-            if (info) info.textContent = chain.length + ' patterns in chain';
+            // Draw pattern blocks
+            for (let b = 0; b < arr.length; b++) {
+                const patIdx = arr[b];
+                if (patIdx < 0) continue;
+
+                const color = PATTERN_COLORS[patIdx % PATTERN_COLORS.length];
+                ctx.fillStyle = color;
+                ctx.globalAlpha = 0.7;
+                ctx.fillRect(b * barW + 1, headerH + 2, barW - 2, trackH - 4);
+                ctx.globalAlpha = 1;
+
+                // Border
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(b * barW + 1, headerH + 2, barW - 2, trackH - 4);
+
+                // Pattern number label
+                ctx.fillStyle = '#000';
+                ctx.font = 'bold 14px monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(String(patIdx + 1), b * barW + barW / 2, headerH + trackH / 2);
+            }
+            ctx.textBaseline = 'alphabetic';
+
+            // Playhead
+            if (this.playing && this.playMode === 'song' && this.currentBar >= 0) {
+                ctx.strokeStyle = '#00ff87';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(this.currentBar * barW, 0);
+                ctx.lineTo(this.currentBar * barW, h);
+                ctx.stroke();
+            }
+
+            // Highlight selected pattern in palette area (drawn at top-right as info)
+            ctx.fillStyle = '#444466';
+            ctx.font = '9px sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText('Selected: P' + (this.arrangementSelectedPattern + 1), w - 5, 13);
         }
 
         // ---- Event Binding ----
@@ -1798,8 +1918,9 @@
                 });
             });
 
-            // Sequencer grid clicks (delegation)
-            document.querySelector('.sequencer-grid').addEventListener('click', (e) => {
+            // Sequencer grid: drag-to-paint with pointer events
+            const seqGrid = document.querySelector('.sequencer-grid');
+            seqGrid.addEventListener('pointerdown', (e) => {
                 const stepEl = e.target.closest('.seq-step');
                 if (stepEl) {
                     const ch = parseInt(stepEl.dataset.channel);
@@ -1814,11 +1935,18 @@
                         }
                         return;
                     }
+                    // Start drag-to-paint
                     this.state.pushUndo();
                     const stepData = this.state.getStep(ch, s);
-                    stepData.on = !stepData.on;
+                    this.dragPaintValue = !stepData.on;
+                    this.dragPaintChannel = ch;
+                    this.dragPainting = true;
+                    this.dragPaintedSteps.clear();
+                    stepData.on = this.dragPaintValue;
+                    this.dragPaintedSteps.add(s);
                     this.updateStepDisplay(ch, s);
-                    this.autoSave();
+                    stepEl.setPointerCapture(e.pointerId);
+                    e.preventDefault();
                     return;
                 }
 
@@ -1836,6 +1964,30 @@
                     this.audio.channelSolo[ch] = !this.audio.channelSolo[ch];
                     soloBtn.classList.toggle('active');
                     return;
+                }
+            });
+
+            seqGrid.addEventListener('pointermove', (e) => {
+                if (!this.dragPainting) return;
+                const el2 = document.elementFromPoint(e.clientX, e.clientY);
+                if (!el2) return;
+                const stepEl = el2.closest('.seq-step');
+                if (!stepEl) return;
+                const ch = parseInt(stepEl.dataset.channel);
+                const s = parseInt(stepEl.dataset.step);
+                if (ch !== this.dragPaintChannel) return;
+                if (this.dragPaintedSteps.has(s)) return;
+                const stepData = this.state.getStep(ch, s);
+                stepData.on = this.dragPaintValue;
+                this.dragPaintedSteps.add(s);
+                this.updateStepDisplay(ch, s);
+            });
+
+            seqGrid.addEventListener('pointerup', (e) => {
+                if (this.dragPainting) {
+                    this.dragPainting = false;
+                    this.dragPaintedSteps.clear();
+                    this.autoSave();
                 }
             });
 
@@ -1990,22 +2142,27 @@
                 });
             }
 
-            // Song mode buttons
+            // Song mode / Arrangement buttons
             document.getElementById('btn-song-add').addEventListener('click', () => {
-                this.state.songChain.push(0);
+                // Add 4 bars
+                for (let i = 0; i < 4; i++) {
+                    this.state.arrangement.push(-1);
+                }
                 this.updateSongChainDisplay();
                 this.autoSave();
             });
             document.getElementById('btn-song-remove').addEventListener('click', () => {
-                if (this.state.songChain.length > 0) {
-                    this.state.songChain.pop();
+                if (this.state.arrangement.length > 0) {
+                    // Remove last 4 bars (or remaining)
+                    const removeCount = Math.min(4, this.state.arrangement.length);
+                    this.state.arrangement.splice(this.state.arrangement.length - removeCount, removeCount);
                     this.updateSongChainDisplay();
                     this.autoSave();
                 }
             });
             document.getElementById('btn-song-clear').addEventListener('click', () => {
-                this.state.songChain = [];
-                this.songChainIndex = 0;
+                this.state.arrangement = [];
+                this.currentBar = 0;
                 this.updateSongChainDisplay();
                 this.autoSave();
             });
@@ -2013,16 +2170,28 @@
                 this.songLoop = e.target.checked;
             });
 
-            // Song chain slot clicks (delegation)
-            document.getElementById('song-chain').addEventListener('click', (e) => {
-                const slot = e.target.closest('.song-slot');
-                if (!slot) return;
-                const idx = parseInt(slot.dataset.index);
-                // Cycle 0-7
-                this.state.songChain[idx] = (this.state.songChain[idx] + 1) % NUM_PATTERNS;
-                slot.textContent = String(this.state.songChain[idx] + 1);
-                this.autoSave();
-            });
+            // Arrangement pattern palette clicks
+            const arrPalette = document.getElementById('arrangement-palette');
+            if (arrPalette) {
+                arrPalette.addEventListener('click', (e) => {
+                    const btn = e.target.closest('.arr-pat-btn');
+                    if (!btn) return;
+                    this.arrangementSelectedPattern = parseInt(btn.dataset.pattern);
+                    arrPalette.querySelectorAll('.arr-pat-btn').forEach((b, i) => {
+                        b.classList.toggle('active', i === this.arrangementSelectedPattern);
+                    });
+                    this.drawArrangement();
+                });
+            }
+
+            // Arrangement canvas events
+            if (this.arrangementCanvas) {
+                this.arrangementCanvas.addEventListener('pointerdown', (e) => this.handleArrangementPointerDown(e));
+                this.arrangementCanvas.addEventListener('pointermove', (e) => this.handleArrangementPointerMove(e));
+                this.arrangementCanvas.addEventListener('pointerup', () => { this.arrangementPainting = false; });
+                this.arrangementCanvas.addEventListener('pointerleave', () => { this.arrangementPainting = false; });
+                this.arrangementCanvas.addEventListener('contextmenu', (e) => this.handleArrangementRightClick(e));
+            }
 
             // Piano roll events
             const prChannel = document.getElementById('pianoroll-channel');
@@ -2062,6 +2231,33 @@
                 this.drawPianoRoll();
                 this.autoSave();
             });
+
+            // Piano roll SEL button
+            const selBtn = document.getElementById('btn-pr-select');
+            if (selBtn) {
+                selBtn.addEventListener('click', () => {
+                    this.pianoRollSelMode = !this.pianoRollSelMode;
+                    selBtn.classList.toggle('active', this.pianoRollSelMode);
+                    if (!this.pianoRollSelMode) {
+                        this.pianoRollSelection.active = false;
+                        this.pianoRollSelecting = false;
+                        this.drawPianoRoll();
+                    }
+                    this.setStatus('Piano roll select mode: ' + (this.pianoRollSelMode ? 'ON' : 'OFF'));
+                });
+            }
+
+            // Humanize button
+            const humBtn = document.getElementById('btn-pat-humanize');
+            if (humBtn) {
+                humBtn.addEventListener('click', () => this.humanizePattern());
+            }
+
+            // Help button
+            const helpBtn = document.getElementById('btn-help');
+            if (helpBtn) {
+                helpBtn.addEventListener('click', () => this.toggleHelpModal());
+            }
 
             // Piano roll canvas mouse events for note duration drag and velocity editing
             if (this.pianoCanvas) {
@@ -2180,18 +2376,24 @@
                 return;
             }
 
-            // Ctrl+C: copy pattern
+            // Ctrl+C: copy (piano roll selection or pattern)
             if (e.ctrlKey && e.key === 'c') {
                 e.preventDefault();
-                this.state.copyPattern();
-                this.setStatus('Pattern copied');
+                if (this.activeTab === 'pianoroll' && this.pianoRollSelMode && this.pianoRollSelection.active) {
+                    this.copyPianoRollSelection();
+                } else {
+                    this.state.copyPattern();
+                    this.setStatus('Pattern copied');
+                }
                 return;
             }
 
-            // Ctrl+V: paste pattern
+            // Ctrl+V: paste (piano roll selection or pattern)
             if (e.ctrlKey && e.key === 'v') {
                 e.preventDefault();
-                if (this.state.pastePattern()) {
+                if (this.activeTab === 'pianoroll' && this.pianoRollSelMode && this.pianoRollNoteClipboard) {
+                    this.pastePianoRollSelection();
+                } else if (this.state.pastePattern()) {
                     this.syncStepsDropdown();
                     this.buildStepIndicators();
                     this.buildSequencerGrid();
@@ -2200,6 +2402,32 @@
                     this.autoSave();
                     this.setStatus('Pattern pasted');
                 }
+                return;
+            }
+
+            // Delete: delete selected notes in piano roll
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                if (this.activeTab === 'pianoroll' && this.pianoRollSelMode && this.pianoRollSelection.active) {
+                    e.preventDefault();
+                    this.deletePianoRollSelection();
+                    return;
+                }
+            }
+
+            // Escape: stop
+            if (e.key === 'Escape') {
+                if (this.helpModalOpen) {
+                    this.toggleHelpModal();
+                } else {
+                    this.stop();
+                }
+                return;
+            }
+
+            // ?: help modal
+            if (e.key === '?' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                e.preventDefault();
+                this.toggleHelpModal();
                 return;
             }
 
@@ -2311,11 +2539,30 @@
             this.currentStep = -1;
             this.nextStepTime = this.audio.ctx.currentTime;
             this.songChainIndex = 0;
+            this.currentBar = 0;
 
-            // If song mode, load first pattern in chain
-            if (this.playMode === 'song' && this.state.songChain.length > 0) {
-                this.state.currentPattern = this.state.songChain[0];
-                this.updatePatternButtons();
+            // If song mode, load first pattern from arrangement
+            if (this.playMode === 'song') {
+                const arr = this.state.arrangement;
+                if (arr.length > 0) {
+                    // Find first non-empty bar
+                    let firstPat = -1;
+                    for (let i = 0; i < arr.length; i++) {
+                        if (arr[i] >= 0) {
+                            firstPat = arr[i];
+                            this.currentBar = i;
+                            break;
+                        }
+                    }
+                    if (firstPat >= 0) {
+                        this.state.currentPattern = firstPat;
+                        this.updatePatternButtons();
+                    }
+                } else if (this.state.songChain.length > 0) {
+                    // Fallback to legacy songChain
+                    this.state.currentPattern = this.state.songChain[0];
+                    this.updatePatternButtons();
+                }
             }
 
             this.scheduler();
@@ -2368,25 +2615,58 @@
                 this.nextStepTime += stepDuration;
 
                 // Check if we wrapped and need to advance song
-                if (this.currentStep === steps - 1 && this.playMode === 'song' && this.state.songChain.length > 0) {
-                    this.songChainIndex++;
-                    if (this.songChainIndex >= this.state.songChain.length) {
-                        if (this.songLoop) {
-                            this.songChainIndex = 0;
-                        } else {
-                            // Stop after this pattern finishes
-                            setTimeout(() => this.stop(), (this.nextStepTime - this.audio.ctx.currentTime) * 1000);
+                if (this.currentStep === steps - 1 && this.playMode === 'song') {
+                    const arr = this.state.arrangement;
+                    if (arr.length > 0) {
+                        // Advance using arrangement
+                        let nextBar = this.currentBar + 1;
+                        // Skip empty bars
+                        while (nextBar < arr.length && arr[nextBar] < 0) nextBar++;
+
+                        if (nextBar >= arr.length) {
+                            if (this.songLoop) {
+                                nextBar = 0;
+                                while (nextBar < arr.length && arr[nextBar] < 0) nextBar++;
+                                if (nextBar >= arr.length) {
+                                    setTimeout(() => this.stop(), (this.nextStepTime - this.audio.ctx.currentTime) * 1000);
+                                    nextBar = -1;
+                                }
+                            } else {
+                                setTimeout(() => this.stop(), (this.nextStepTime - this.audio.ctx.currentTime) * 1000);
+                                nextBar = -1;
+                            }
                         }
-                    }
-                    if (this.songChainIndex < this.state.songChain.length) {
-                        this.state.currentPattern = this.state.songChain[this.songChainIndex];
-                        setTimeout(() => {
-                            this.updatePatternButtons();
-                            this.syncStepsDropdown();
-                            this.buildStepIndicators();
-                            this.buildSequencerGrid();
-                            this.updateSongChainDisplay();
-                        }, uiDelay);
+                        if (nextBar >= 0 && nextBar < arr.length) {
+                            this.currentBar = nextBar;
+                            this.state.currentPattern = arr[nextBar];
+                            setTimeout(() => {
+                                this.updatePatternButtons();
+                                this.syncStepsDropdown();
+                                this.buildStepIndicators();
+                                this.buildSequencerGrid();
+                                this.drawArrangement();
+                            }, uiDelay);
+                        }
+                    } else if (this.state.songChain.length > 0) {
+                        // Fallback to legacy songChain
+                        this.songChainIndex++;
+                        if (this.songChainIndex >= this.state.songChain.length) {
+                            if (this.songLoop) {
+                                this.songChainIndex = 0;
+                            } else {
+                                setTimeout(() => this.stop(), (this.nextStepTime - this.audio.ctx.currentTime) * 1000);
+                            }
+                        }
+                        if (this.songChainIndex < this.state.songChain.length) {
+                            this.state.currentPattern = this.state.songChain[this.songChainIndex];
+                            setTimeout(() => {
+                                this.updatePatternButtons();
+                                this.syncStepsDropdown();
+                                this.buildStepIndicators();
+                                this.buildSequencerGrid();
+                                this.updateSongChainDisplay();
+                            }, uiDelay);
+                        }
                     }
                 }
             }
@@ -2701,6 +2981,33 @@
                 }
             }
 
+            // Selection rectangle (Phase 3)
+            if (this.pianoRollSelMode && this.pianoRollSelection.active) {
+                const sel = this.pianoRollSelection;
+                const minStep = Math.min(sel.startStep, sel.endStep);
+                const maxStep = Math.max(sel.startStep, sel.endStep);
+                const minNote = Math.min(sel.startNote, sel.endNote);
+                const maxNote = Math.max(sel.startNote, sel.endNote);
+                const minNoteOffset = minNote - baseNote;
+                const maxNoteOffset = maxNote - baseNote;
+
+                if (maxNoteOffset >= 0 && minNoteOffset < rows) {
+                    const selY1 = (rows - 1 - Math.min(maxNoteOffset, rows - 1)) * rowH;
+                    const selY2 = (rows - Math.max(minNoteOffset, 0)) * rowH;
+                    const selX1 = minStep * colW;
+                    const selX2 = (maxStep + 1) * colW;
+
+                    ctx.save();
+                    ctx.strokeStyle = '#4fc3f7';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([4, 4]);
+                    ctx.strokeRect(selX1, selY1, selX2 - selX1, selY2 - selY1);
+                    ctx.fillStyle = 'rgba(79, 195, 247, 0.08)';
+                    ctx.fillRect(selX1, selY1, selX2 - selX1, selY2 - selY1);
+                    ctx.restore();
+                }
+            }
+
             // Playhead
             if (this.playing && this.currentStep >= 0) {
                 ctx.strokeStyle = '#00ff87';
@@ -2744,6 +3051,22 @@
 
             if (step < 0 || step >= steps || midiNote < 0 || midiNote > 127) return;
 
+            // Track last click position for paste offset
+            this.pianoRollLastClickStep = step;
+            this.pianoRollLastClickNote = midiNote;
+
+            // Selection mode
+            if (this.pianoRollSelMode) {
+                this.pianoRollSelecting = true;
+                this.pianoRollSelection = {
+                    active: true,
+                    startStep: step, startNote: midiNote,
+                    endStep: step, endNote: midiNote
+                };
+                this.drawPianoRoll();
+                return;
+            }
+
             const channels = this.state.getCurrentPatternChannels();
             const ch = this.pianoRollChannel;
             const stepData = channels[ch][step];
@@ -2779,6 +3102,27 @@
                 return;
             }
 
+            // Selection drag
+            if (this.pianoRollSelecting) {
+                const rect = this.pianoCanvas.getBoundingClientRect();
+                const canvasX = (e.clientX - rect.left) * (this.pianoCanvas.width / rect.width);
+                const canvasY = (e.clientY - rect.top) * (this.pianoCanvas.height / rect.height);
+                const noteAreaH = 480;
+                const rows = 24;
+                const rowH = noteAreaH / rows;
+                const steps = this.state.getSteps();
+                const colW = this.pianoCanvas.width / steps;
+                const step = Math.max(0, Math.min(steps - 1, Math.floor(canvasX / colW)));
+                const row = Math.floor(canvasY / rowH);
+                const noteOffset = rows - 1 - row;
+                const baseNote = (this.pianoRollOctave + 1) * 12;
+                const midiNote = Math.max(0, Math.min(127, baseNote + noteOffset));
+                this.pianoRollSelection.endStep = step;
+                this.pianoRollSelection.endNote = midiNote;
+                this.drawPianoRoll();
+                return;
+            }
+
             if (!this.pianoRollDragging) return;
 
             const rect = this.pianoCanvas.getBoundingClientRect();
@@ -2796,6 +3140,12 @@
             if (this.velocityDragging) {
                 this.velocityDragging = false;
                 this.autoSave();
+                return;
+            }
+
+            if (this.pianoRollSelecting) {
+                this.pianoRollSelecting = false;
+                this.drawPianoRoll();
                 return;
             }
 
@@ -3159,6 +3509,7 @@
                 patterns: JSON.parse(JSON.stringify(this.state.patterns)),
                 currentPattern: this.state.currentPattern,
                 songChain: [...this.state.songChain],
+                arrangement: [...this.state.arrangement],
                 channelParams: JSON.parse(JSON.stringify(this.audio.channelParams)),
                 sidechainAmount: this.audio.sidechainAmount,
                 sidechainRelease: this.audio.sidechainRelease,
@@ -3264,6 +3615,9 @@
             }
             if (data.songChain) {
                 this.state.songChain = data.songChain;
+            }
+            if (data.arrangement) {
+                this.state.arrangement = data.arrangement;
             }
             if (data.channelParams) {
                 this.audio.channelParams = data.channelParams;
@@ -3429,9 +3783,260 @@
                 if (this.activeTab === 'automation') {
                     this.drawAutomation();
                 }
+                // Redraw arrangement playhead
+                if (this.activeTab === 'songmode') {
+                    this.drawArrangement();
+                }
             };
 
             draw();
+        }
+
+        // ---- Arrangement Canvas Events ----
+        handleArrangementPointerDown(e) {
+            if (e.button === 2) return; // right click handled separately
+            const rect = this.arrangementCanvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (this.arrangementCanvas.width / rect.width);
+            const totalBars = Math.max(this.state.arrangement.length, 16);
+            const barW = this.arrangementCanvas.width / totalBars;
+            const bar = Math.floor(x / barW);
+            if (bar < 0 || bar >= totalBars) return;
+
+            // Ensure arrangement is long enough
+            while (this.state.arrangement.length <= bar) {
+                this.state.arrangement.push(-1);
+            }
+
+            this.state.arrangement[bar] = this.arrangementSelectedPattern;
+            this.arrangementPainting = true;
+            this.drawArrangement();
+            this.autoSave();
+            this.updateSongChainDisplay();
+            e.preventDefault();
+        }
+
+        handleArrangementPointerMove(e) {
+            if (!this.arrangementPainting) return;
+            const rect = this.arrangementCanvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (this.arrangementCanvas.width / rect.width);
+            const totalBars = Math.max(this.state.arrangement.length, 16);
+            const barW = this.arrangementCanvas.width / totalBars;
+            const bar = Math.floor(x / barW);
+            if (bar < 0 || bar >= totalBars) return;
+
+            while (this.state.arrangement.length <= bar) {
+                this.state.arrangement.push(-1);
+            }
+
+            this.state.arrangement[bar] = this.arrangementSelectedPattern;
+            this.drawArrangement();
+            this.autoSave();
+        }
+
+        handleArrangementRightClick(e) {
+            e.preventDefault();
+            const rect = this.arrangementCanvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (this.arrangementCanvas.width / rect.width);
+            const totalBars = Math.max(this.state.arrangement.length, 16);
+            const barW = this.arrangementCanvas.width / totalBars;
+            const bar = Math.floor(x / barW);
+            if (bar < 0 || bar >= this.state.arrangement.length) return;
+
+            this.state.arrangement[bar] = -1;
+            this.drawArrangement();
+            this.autoSave();
+            this.updateSongChainDisplay();
+        }
+
+        // ---- Humanize ----
+        humanizePattern() {
+            this.state.pushUndo();
+            const pat = this.state.getCurrentPattern();
+            const steps = pat.stepsCount;
+            let count = 0;
+            for (let ch = 0; ch < CHANNELS.length; ch++) {
+                for (let s = 0; s < steps; s++) {
+                    const stepData = pat.channels[ch][s];
+                    if (stepData.on) {
+                        const offset = (Math.random() * 0.2) - 0.1;
+                        stepData.velocity = Math.max(0.2, Math.min(1.0, stepData.velocity + offset));
+                        stepData.velocity = Math.round(stepData.velocity * 100) / 100;
+                        count++;
+                    }
+                }
+            }
+            this.updateSequencerDisplay();
+            this.drawPianoRoll();
+            this.autoSave();
+            this.setStatus('Humanized pattern ' + (this.state.currentPattern + 1) + ' (' + count + ' steps)');
+        }
+
+        // ---- Piano Roll Copy/Paste ----
+        copyPianoRollSelection() {
+            const sel = this.pianoRollSelection;
+            if (!sel.active) {
+                this.setStatus('No selection to copy');
+                return;
+            }
+            const channels = this.state.getCurrentPatternChannels();
+            const ch = this.pianoRollChannel;
+            const steps = this.state.getSteps();
+            const minStep = Math.min(sel.startStep, sel.endStep);
+            const maxStep = Math.max(sel.startStep, sel.endStep);
+            const minNote = Math.min(sel.startNote, sel.endNote);
+            const maxNote = Math.max(sel.startNote, sel.endNote);
+
+            const notes = [];
+            for (let s = minStep; s <= maxStep && s < steps; s++) {
+                const stepData = channels[ch][s];
+                if (stepData.on && stepData.note >= minNote && stepData.note <= maxNote) {
+                    notes.push({
+                        step: s - minStep,
+                        note: stepData.note - minNote,
+                        velocity: stepData.velocity,
+                        duration: stepData.duration || 1
+                    });
+                }
+            }
+            this.pianoRollNoteClipboard = { notes: notes, baseStep: minStep, baseNote: minNote };
+            this.setStatus('Copied ' + notes.length + ' notes');
+        }
+
+        pastePianoRollSelection() {
+            if (!this.pianoRollNoteClipboard || this.pianoRollNoteClipboard.notes.length === 0) {
+                this.setStatus('Nothing to paste');
+                return;
+            }
+            this.state.pushUndo();
+            const channels = this.state.getCurrentPatternChannels();
+            const ch = this.pianoRollChannel;
+            const steps = this.state.getSteps();
+            const clip = this.pianoRollNoteClipboard;
+            const offsetStep = this.pianoRollLastClickStep;
+            const offsetNote = this.pianoRollLastClickNote;
+            let pasted = 0;
+
+            for (const n of clip.notes) {
+                const targetStep = offsetStep + n.step;
+                const targetNote = offsetNote + n.note;
+                if (targetStep >= 0 && targetStep < steps && targetNote >= 0 && targetNote <= 127) {
+                    const stepData = channels[ch][targetStep];
+                    stepData.on = true;
+                    stepData.note = targetNote;
+                    stepData.velocity = n.velocity;
+                    stepData.duration = n.duration;
+                    pasted++;
+                }
+            }
+            this.updateSequencerDisplay();
+            this.drawPianoRoll();
+            this.autoSave();
+            this.setStatus('Pasted ' + pasted + ' notes');
+        }
+
+        deletePianoRollSelection() {
+            const sel = this.pianoRollSelection;
+            if (!sel.active) return;
+            this.state.pushUndo();
+            const channels = this.state.getCurrentPatternChannels();
+            const ch = this.pianoRollChannel;
+            const steps = this.state.getSteps();
+            const minStep = Math.min(sel.startStep, sel.endStep);
+            const maxStep = Math.max(sel.startStep, sel.endStep);
+            const minNote = Math.min(sel.startNote, sel.endNote);
+            const maxNote = Math.max(sel.startNote, sel.endNote);
+            let deleted = 0;
+
+            for (let s = minStep; s <= maxStep && s < steps; s++) {
+                const stepData = channels[ch][s];
+                if (stepData.on && stepData.note >= minNote && stepData.note <= maxNote) {
+                    stepData.on = false;
+                    deleted++;
+                }
+            }
+            this.pianoRollSelection.active = false;
+            this.updateSequencerDisplay();
+            this.drawPianoRoll();
+            this.autoSave();
+            this.setStatus('Deleted ' + deleted + ' notes');
+        }
+
+        // ---- Help Modal ----
+        toggleHelpModal() {
+            this.helpModalOpen = !this.helpModalOpen;
+            let modal = document.getElementById('help-modal');
+            if (this.helpModalOpen) {
+                if (!modal) {
+                    modal = this.buildHelpModal();
+                    document.getElementById('app').appendChild(modal);
+                }
+                modal.style.display = 'flex';
+            } else {
+                if (modal) modal.style.display = 'none';
+            }
+        }
+
+        buildHelpModal() {
+            const overlay = el('div', { id: 'help-modal', className: 'help-modal-overlay' });
+            const card = el('div', { className: 'help-modal-card' });
+
+            const title = el('h2', { className: 'help-modal-title', text: 'Keyboard Shortcuts' });
+            card.appendChild(title);
+
+            const sections = [
+                { title: 'Transport', shortcuts: [
+                    ['Space', 'Play / Stop'],
+                    ['Esc', 'Stop'],
+                    ['T', 'Tap Tempo']
+                ]},
+                { title: 'Pattern', shortcuts: [
+                    ['1-8', 'Select Pattern'],
+                    ['Ctrl+C', 'Copy Pattern'],
+                    ['Ctrl+V', 'Paste Pattern'],
+                    ['Ctrl+S', 'Save Project']
+                ]},
+                { title: 'Piano Roll', shortcuts: [
+                    ['Z-M', 'Play Notes'],
+                    ['Shift', 'Octave Up'],
+                    ['Click', 'Place Note'],
+                    ['Drag', 'Extend Note Duration'],
+                    ['SEL mode + Drag', 'Select Notes'],
+                    ['Delete', 'Delete Selected Notes']
+                ]},
+                { title: 'Editing', shortcuts: [
+                    ['Ctrl+Z', 'Undo'],
+                    ['Ctrl+Shift+Z', 'Redo'],
+                    ['Shift+Click (HiHat)', 'Toggle Open Hat'],
+                    ['Drag (Sequencer)', 'Paint Steps']
+                ]},
+                { title: 'Navigation', shortcuts: [
+                    ['?', 'Toggle This Help']
+                ]}
+            ];
+
+            for (const sec of sections) {
+                const secTitle = el('h3', { className: 'help-section-title', text: sec.title });
+                card.appendChild(secTitle);
+                const grid = el('div', { className: 'help-shortcut-grid' });
+                for (const [key, desc] of sec.shortcuts) {
+                    const keyEl = el('span', { className: 'help-key', text: key });
+                    const descEl = el('span', { className: 'help-desc', text: desc });
+                    grid.appendChild(keyEl);
+                    grid.appendChild(descEl);
+                }
+                card.appendChild(grid);
+            }
+
+            const closeBtn = el('button', { className: 'help-close-btn', text: 'Close (?)' });
+            closeBtn.addEventListener('click', () => this.toggleHelpModal());
+            card.appendChild(closeBtn);
+
+            overlay.appendChild(card);
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) this.toggleHelpModal();
+            });
+
+            return overlay;
         }
 
         // ---- Status ----
