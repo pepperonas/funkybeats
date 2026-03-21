@@ -19,6 +19,7 @@
                 <button id="btn-play" class="transport-btn" title="Play (Space)">&#9654;</button>
                 <button id="btn-stop" class="transport-btn" title="Stop (Space)">&#9632;</button>
                 <button id="btn-record" class="transport-btn rec-btn" title="Record">&#9679;</button>
+                <button id="btn-metronome" class="transport-btn met-btn" title="Metronome">MET</button>
                 <div class="transport-divider"></div>
                 <div class="bpm-control">
                     <label>BPM</label>
@@ -29,6 +30,15 @@
                     <label>SWING</label>
                     <input type="range" id="swing" min="0" max="100" value="0" class="knob-range">
                     <span id="swing-val">0%</span>
+                </div>
+                <div class="transport-divider"></div>
+                <div class="steps-control">
+                    <label>STEPS</label>
+                    <select id="steps-select">
+                        <option value="16" selected>16</option>
+                        <option value="32">32</option>
+                        <option value="64">64</option>
+                    </select>
                 </div>
                 <div class="transport-divider"></div>
                 <div class="mode-control">
@@ -106,6 +116,7 @@
             <button class="tab" data-tab="pianoroll">PIANO ROLL</button>
             <button class="tab" data-tab="mixer">MIXER</button>
             <button class="tab" data-tab="syntheditor">SYNTH EDITOR</button>
+            <button class="tab" data-tab="automation">AUTOMATION</button>
             <button class="tab" data-tab="songmode">SONG MODE</button>
         </nav>
 
@@ -139,11 +150,11 @@
                     <div class="pianoroll-divider"></div>
                     <button id="clear-notes" class="small-btn">Clear</button>
                     <div class="pianoroll-divider"></div>
-                    <span class="keyboard-hint">Keyboard: Z-M = Notes | Shift = Octave Up</span>
+                    <span class="keyboard-hint">Keyboard: Z-M = Notes | Shift = Octave Up | Drag = Note Length</span>
                 </div>
                 <div class="pianoroll-container">
                     <div class="piano-keys" id="piano-keys"></div>
-                    <canvas id="pianoroll-canvas" width="800" height="480"></canvas>
+                    <canvas id="pianoroll-canvas" width="800" height="540"></canvas>
                 </div>
             </section>
 
@@ -174,6 +185,44 @@
                                 <span class="param-val" id="sc-release-val">200ms</span>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Automation -->
+            <section id="panel-automation" class="panel">
+                <div class="automation-editor">
+                    <div class="automation-toolbar">
+                        <label>Parameter:</label>
+                        <select id="automation-param-select">
+                            <optgroup label="Master">
+                                <option value="master-filter">Master Filter</option>
+                                <option value="master-resonance">Master Resonance</option>
+                                <option value="master-reverb">Master Reverb</option>
+                                <option value="master-delay">Master Delay</option>
+                                <option value="master-distortion">Master Distortion</option>
+                            </optgroup>
+                            <optgroup label="Per Channel">
+                                <option value="channel-0-volume">Kick Volume</option>
+                                <option value="channel-1-volume">Snare Volume</option>
+                                <option value="channel-2-volume">HiHat Volume</option>
+                                <option value="channel-3-volume">Clap Volume</option>
+                                <option value="channel-4-volume">Perc Volume</option>
+                                <option value="channel-5-volume">Bass Volume</option>
+                                <option value="channel-5-cutoff">Bass Cutoff</option>
+                                <option value="channel-6-volume">Lead Volume</option>
+                                <option value="channel-6-cutoff">Lead Cutoff</option>
+                                <option value="channel-7-volume">Pad Volume</option>
+                                <option value="channel-7-cutoff">Pad Cutoff</option>
+                            </optgroup>
+                        </select>
+                        <div class="pianoroll-divider"></div>
+                        <button id="automation-clear" class="small-btn">Clear Lane</button>
+                        <div class="pianoroll-divider"></div>
+                        <span class="keyboard-hint">Click = set point | Drag = draw curve | Right-click = delete point</span>
+                    </div>
+                    <div class="automation-canvas-container">
+                        <canvas id="automation-canvas" width="800" height="200"></canvas>
                     </div>
                 </div>
             </section>

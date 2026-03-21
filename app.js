@@ -1,14 +1,15 @@
 // ============================================
 // FUNKYBEATS - Complete Electronic Music Producer
 // Web Audio API Synthesized DAW Clone
-// v2.0 - Major Upgrade with 9 new features
+// v3.0 - Phase 1: Variable Length, Note Duration,
+//        Velocity Lane, Automation, Metronome
 // ============================================
 
 (() => {
     'use strict';
 
     // ---- Constants ----
-    const STEPS = 16;
+    const DEFAULT_STEPS = 16;
     const NUM_PATTERNS = 8;
     const MAX_UNDO = 50;
     const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -79,6 +80,9 @@
             this.noiseBuffer = null;
             this.initialized = false;
 
+            // Metronome
+            this.metronomeGain = null;
+
             // Sidechain
             this.sidechainAmount = 0;
             this.sidechainRelease = 200;
@@ -148,6 +152,11 @@
             this.delayFeedback.gain.value = 0.3;
             this.delayGain = this.ctx.createGain();
             this.delayGain.gain.value = 0;
+
+            // Metronome gain (bypasses effects, goes directly to destination)
+            this.metronomeGain = this.ctx.createGain();
+            this.metronomeGain.gain.value = 0.5;
+            this.metronomeGain.connect(this.ctx.destination);
 
             // Channel gains and pans
             for (let i = 0; i < CHANNELS.length; i++) {
@@ -241,6 +250,21 @@
             preGain.connect(waveshaper);
             waveshaper.connect(postGain);
             return postGain;
+        }
+
+        // ---- Metronome Click ----
+        playClick(time, isDownbeat) {
+            if (!this.ctx || !this.metronomeGain) return;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = isDownbeat ? 1000 : 800;
+            gain.gain.setValueAtTime(this.metronomeGain.gain.value, time);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.02);
+            osc.connect(gain);
+            gain.connect(this.metronomeGain);
+            osc.start(time);
+            osc.stop(time + 0.03);
         }
 
         // ---- Drum Voices ----
@@ -449,12 +473,12 @@
         }
 
         // ---- Synth Voices ----
-        playBass(time, note = 36, velocity = 0.8, channelIdx = 5, duration = 0.2) {
+        playBass(time, note = 36, velocity = 0.8, channelIdx = 5, noteLength = 0.2) {
             if (!this.ctx) return;
             const params = this.channelParams[channelIdx];
             const freq = midiToFreq(note);
             const attackTime = (params.attack / 100) * 0.3;
-            const decayTime = 0.05 + (params.decay / 100) * 0.5;
+            const decayTime = Math.max(0.05 + (params.decay / 100) * 0.5, noteLength);
             const cutoff = 200 + (params.cutoff / 100) * 4000;
 
             const osc = this.ctx.createOscillator();
@@ -489,12 +513,12 @@
             osc2.stop(time + attackTime + decayTime + 0.01);
         }
 
-        playLead(time, note = 60, velocity = 0.8, channelIdx = 6, duration = 0.2) {
+        playLead(time, note = 60, velocity = 0.8, channelIdx = 6, noteLength = 0.2) {
             if (!this.ctx) return;
             const params = this.channelParams[channelIdx];
             const freq = midiToFreq(note);
             const attackTime = (params.attack / 100) * 0.2;
-            const decayTime = 0.05 + (params.decay / 100) * 0.4;
+            const decayTime = Math.max(0.05 + (params.decay / 100) * 0.4, noteLength);
             const cutoff = 500 + (params.cutoff / 100) * 8000;
 
             const osc = this.ctx.createOscillator();
@@ -522,12 +546,12 @@
             osc.stop(time + attackTime + decayTime + 0.01);
         }
 
-        playPad(time, note = 60, velocity = 0.8, channelIdx = 7, duration = 0.5) {
+        playPad(time, note = 60, velocity = 0.8, channelIdx = 7, noteLength = 0.5) {
             if (!this.ctx) return;
             const params = this.channelParams[channelIdx];
             const freq = midiToFreq(note);
             const attackTime = 0.02 + (params.attack / 100) * 0.5;
-            const decayTime = 0.2 + (params.decay / 100) * 1.5;
+            const decayTime = Math.max(0.2 + (params.decay / 100) * 1.5, noteLength);
             const cutoff = 300 + (params.cutoff / 100) * 5000;
 
             const osc1 = this.ctx.createOscillator();
@@ -568,7 +592,7 @@
         }
 
         // ---- Play any channel ----
-        playChannel(channelIdx, time, velocity, note, isOpen) {
+        playChannel(channelIdx, time, velocity, note, isOpen, noteLength) {
             if (!this.ctx) return;
             // Check mute/solo
             const hasSolo = this.channelSolo.some(s => s);
@@ -581,9 +605,9 @@
                 case 2: this.playHihat(time, velocity, channelIdx, isOpen); break;
                 case 3: this.playClap(time, velocity, channelIdx); break;
                 case 4: this.playPerc(time, velocity, channelIdx); break;
-                case 5: this.playBass(time, note || 36, velocity, channelIdx); break;
-                case 6: this.playLead(time, note || 60, velocity, channelIdx); break;
-                case 7: this.playPad(time, note || 60, velocity, channelIdx); break;
+                case 5: this.playBass(time, note || 36, velocity, channelIdx, noteLength); break;
+                case 6: this.playLead(time, note || 60, velocity, channelIdx, noteLength); break;
+                case 7: this.playPad(time, note || 60, velocity, channelIdx, noteLength); break;
             }
         }
 
@@ -670,33 +694,82 @@
         initPatterns() {
             this.patterns = [];
             for (let p = 0; p < NUM_PATTERNS; p++) {
-                this.patterns.push(this.createEmptyPattern());
+                this.patterns.push(this.createEmptyPattern(DEFAULT_STEPS));
             }
         }
 
-        createEmptyPattern() {
-            const pattern = [];
+        createEmptyPattern(length) {
+            const stepsCount = length || DEFAULT_STEPS;
+            const channels = [];
             for (let ch = 0; ch < CHANNELS.length; ch++) {
                 const channel = [];
-                for (let s = 0; s < STEPS; s++) {
+                for (let s = 0; s < stepsCount; s++) {
                     channel.push({
                         on: false,
                         velocity: 0.8,
                         note: CHANNELS[ch].type === 'synth' ? 48 : 0,
-                        open: false
+                        open: false,
+                        duration: 1
                     });
                 }
-                pattern.push(channel);
+                channels.push(channel);
             }
-            return pattern;
+            return { stepsCount: stepsCount, channels: channels, automation: {} };
+        }
+
+        getSteps() {
+            return this.patterns[this.currentPattern].stepsCount;
         }
 
         getStep(ch, step) {
-            return this.patterns[this.currentPattern][ch][step];
+            return this.patterns[this.currentPattern].channels[ch][step];
         }
 
         getCurrentPattern() {
             return this.patterns[this.currentPattern];
+        }
+
+        getCurrentPatternChannels() {
+            return this.patterns[this.currentPattern].channels;
+        }
+
+        // Change pattern length, preserving existing data
+        setPatternLength(newLength) {
+            const pat = this.patterns[this.currentPattern];
+            const oldLength = pat.stepsCount;
+            if (newLength === oldLength) return;
+
+            for (let ch = 0; ch < CHANNELS.length; ch++) {
+                if (newLength > oldLength) {
+                    // Extend
+                    for (let s = oldLength; s < newLength; s++) {
+                        pat.channels[ch].push({
+                            on: false,
+                            velocity: 0.8,
+                            note: CHANNELS[ch].type === 'synth' ? 48 : 0,
+                            open: false,
+                            duration: 1
+                        });
+                    }
+                } else {
+                    // Truncate
+                    pat.channels[ch].length = newLength;
+                }
+            }
+
+            // Fix automation arrays
+            if (pat.automation) {
+                for (const key of Object.keys(pat.automation)) {
+                    const arr = pat.automation[key];
+                    if (newLength > oldLength) {
+                        while (arr.length < newLength) arr.push(null);
+                    } else {
+                        arr.length = newLength;
+                    }
+                }
+            }
+
+            pat.stepsCount = newLength;
         }
 
         // ---- Undo/Redo ----
@@ -747,7 +820,8 @@
 
         clearPattern() {
             this.pushUndo();
-            this.patterns[this.currentPattern] = this.createEmptyPattern();
+            const len = this.patterns[this.currentPattern].stepsCount;
+            this.patterns[this.currentPattern] = this.createEmptyPattern(len);
         }
 
         // ---- Serialization ----
@@ -764,7 +838,7 @@
                 this.patterns = data.patterns;
                 // Ensure all patterns have correct structure
                 while (this.patterns.length < NUM_PATTERNS) {
-                    this.patterns.push(this.createEmptyPattern());
+                    this.patterns.push(this.createEmptyPattern(DEFAULT_STEPS));
                 }
             }
             if (data.songChain) {
@@ -820,6 +894,9 @@
             this.scheduleAheadTime = 0.1;
             this.lookAhead = 25; // ms
 
+            // Metronome
+            this.metronome = { enabled: false, volume: 0.5 };
+
             // Play mode
             this.playMode = 'pattern'; // 'pattern' or 'song'
             this.songChainIndex = 0;
@@ -832,11 +909,24 @@
             this.pianoRollChannel = 5;
             this.pianoRollOctave = 3;
 
+            // Piano roll drag state for note duration
+            this.pianoRollDragging = false;
+            this.pianoRollDragStep = -1;
+            this.pianoRollDragNote = -1;
+            this.pianoRollDragDuration = 1;
+
+            // Velocity lane drag state
+            this.velocityDragging = false;
+
             // Synth editor
             this.synthEditorChannel = 0;
 
             // Active tab
             this.activeTab = 'sequencer';
+
+            // Automation
+            this.automationParam = 'master-filter';
+            this.automationDragging = false;
 
             // Visualizer animation
             this.animFrame = null;
@@ -850,6 +940,10 @@
             // Piano canvas
             this.pianoCanvas = null;
             this.pianoCtx = null;
+
+            // Automation canvas
+            this.automationCanvas = null;
+            this.automationCtx = null;
 
             // Init
             this.initUI();
@@ -868,6 +962,15 @@
             this.buildSynthEditorUI();
             this.buildSongChainUI();
             this.initPianoCanvas();
+            this.initAutomationCanvas();
+            this.syncStepsDropdown();
+        }
+
+        syncStepsDropdown() {
+            const sel = document.getElementById('steps-select');
+            if (sel) {
+                sel.value = String(this.state.getSteps());
+            }
         }
 
         buildStepIndicators() {
@@ -875,7 +978,8 @@
             // Clear existing
             while (container.firstChild) container.removeChild(container.firstChild);
             this.stepIndicators = [];
-            for (let i = 0; i < STEPS; i++) {
+            const steps = this.state.getSteps();
+            for (let i = 0; i < steps; i++) {
                 const ind = el('div', { className: 'step-indicator' });
                 if (i % 4 === 0) ind.classList.add('beat');
                 this.stepIndicators.push(ind);
@@ -887,6 +991,7 @@
             const grid = document.querySelector('.sequencer-grid');
             while (grid.firstChild) grid.removeChild(grid.firstChild);
             this.stepElements = [];
+            const steps = this.state.getSteps();
 
             for (let ch = 0; ch < CHANNELS.length; ch++) {
                 const row = el('div', { className: 'seq-row' });
@@ -915,7 +1020,7 @@
                 const stepsContainer = el('div', { className: 'seq-steps' });
                 const channelSteps = [];
 
-                for (let s = 0; s < STEPS; s++) {
+                for (let s = 0; s < steps; s++) {
                     // Group every 4 steps
                     if (s % 4 === 0) {
                         var group = el('div', { className: 'seq-step-group' });
@@ -1039,6 +1144,10 @@
                 key.dataset.note = (octave + 1) * 12 + noteIdx;
                 container.appendChild(key);
             }
+
+            // Velocity lane label
+            const velLabel = el('div', { className: 'piano-key vel-label', text: 'VEL' });
+            container.appendChild(velLabel);
         }
 
         initPianoCanvas() {
@@ -1046,6 +1155,14 @@
             if (this.pianoCanvas) {
                 this.pianoCtx = this.pianoCanvas.getContext('2d');
                 this.drawPianoRoll();
+            }
+        }
+
+        initAutomationCanvas() {
+            this.automationCanvas = document.getElementById('automation-canvas');
+            if (this.automationCanvas) {
+                this.automationCtx = this.automationCanvas.getContext('2d');
+                this.drawAutomation();
             }
         }
 
@@ -1145,6 +1262,13 @@
             document.getElementById('btn-stop').addEventListener('click', () => this.stop());
             document.getElementById('btn-record').addEventListener('click', () => this.toggleRecord());
 
+            // Metronome
+            document.getElementById('btn-metronome').addEventListener('click', () => {
+                this.metronome.enabled = !this.metronome.enabled;
+                document.getElementById('btn-metronome').classList.toggle('active', this.metronome.enabled);
+                this.setStatus('Metronome ' + (this.metronome.enabled ? 'ON' : 'OFF'));
+            });
+
             // BPM
             document.getElementById('bpm').addEventListener('change', (e) => {
                 this.bpm = Math.max(60, Math.min(200, parseInt(e.target.value) || 128));
@@ -1156,6 +1280,19 @@
             document.getElementById('swing').addEventListener('input', (e) => {
                 this.swing = parseInt(e.target.value);
                 document.getElementById('swing-val').textContent = this.swing + '%';
+            });
+
+            // Steps selector
+            document.getElementById('steps-select').addEventListener('change', (e) => {
+                const newLen = parseInt(e.target.value);
+                this.state.pushUndo();
+                this.state.setPatternLength(newLen);
+                this.buildStepIndicators();
+                this.buildSequencerGrid();
+                this.drawPianoRoll();
+                this.drawAutomation();
+                this.autoSave();
+                this.setStatus('Pattern length: ' + newLen + ' steps');
             });
 
             // Tap tempo
@@ -1178,8 +1315,11 @@
                     document.querySelectorAll('.pattern-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
                     this.state.currentPattern = parseInt(btn.dataset.pattern);
-                    this.updateSequencerDisplay();
+                    this.syncStepsDropdown();
+                    this.buildStepIndicators();
+                    this.buildSequencerGrid();
                     this.drawPianoRoll();
+                    this.drawAutomation();
                 });
             });
 
@@ -1190,16 +1330,20 @@
             });
             document.getElementById('btn-pat-paste').addEventListener('click', () => {
                 if (this.state.pastePattern()) {
-                    this.updateSequencerDisplay();
+                    this.syncStepsDropdown();
+                    this.buildStepIndicators();
+                    this.buildSequencerGrid();
                     this.drawPianoRoll();
+                    this.drawAutomation();
                     this.autoSave();
                     this.setStatus('Pattern pasted');
                 }
             });
             document.getElementById('btn-pat-clear').addEventListener('click', () => {
                 this.state.clearPattern();
-                this.updateSequencerDisplay();
+                this.buildSequencerGrid();
                 this.drawPianoRoll();
+                this.drawAutomation();
                 this.autoSave();
                 this.setStatus('Pattern cleared');
             });
@@ -1233,6 +1377,7 @@
                     const panel = document.getElementById('panel-' + tab.dataset.tab);
                     if (panel) panel.classList.add('active');
                     if (tab.dataset.tab === 'pianoroll') this.drawPianoRoll();
+                    if (tab.dataset.tab === 'automation') this.drawAutomation();
                 });
             });
 
@@ -1469,22 +1614,56 @@
             });
             document.getElementById('clear-notes').addEventListener('click', () => {
                 this.state.pushUndo();
-                const pattern = this.state.getCurrentPattern();
-                for (let s = 0; s < STEPS; s++) {
-                    pattern[this.pianoRollChannel][s].on = false;
-                    pattern[this.pianoRollChannel][s].velocity = 0.8;
-                    pattern[this.pianoRollChannel][s].note = 48;
+                const channels = this.state.getCurrentPatternChannels();
+                const steps = this.state.getSteps();
+                for (let s = 0; s < steps; s++) {
+                    channels[this.pianoRollChannel][s].on = false;
+                    channels[this.pianoRollChannel][s].velocity = 0.8;
+                    channels[this.pianoRollChannel][s].note = 48;
+                    channels[this.pianoRollChannel][s].duration = 1;
                 }
                 this.updateSequencerDisplay();
                 this.drawPianoRoll();
                 this.autoSave();
             });
 
-            // Piano roll canvas click
+            // Piano roll canvas mouse events for note duration drag and velocity editing
             if (this.pianoCanvas) {
-                this.pianoCanvas.addEventListener('click', (e) => {
-                    this.handlePianoRollClick(e);
+                this.pianoCanvas.addEventListener('mousedown', (e) => this.handlePianoRollMouseDown(e));
+                this.pianoCanvas.addEventListener('mousemove', (e) => this.handlePianoRollMouseMove(e));
+                this.pianoCanvas.addEventListener('mouseup', (e) => this.handlePianoRollMouseUp(e));
+                this.pianoCanvas.addEventListener('mouseleave', (e) => this.handlePianoRollMouseUp(e));
+                this.pianoCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
+            }
+
+            // Automation events
+            const autoParamSelect = document.getElementById('automation-param-select');
+            if (autoParamSelect) {
+                autoParamSelect.addEventListener('change', (e) => {
+                    this.automationParam = e.target.value;
+                    this.drawAutomation();
                 });
+            }
+            const autoClear = document.getElementById('automation-clear');
+            if (autoClear) {
+                autoClear.addEventListener('click', () => {
+                    this.state.pushUndo();
+                    const pat = this.state.getCurrentPattern();
+                    if (pat.automation[this.automationParam]) {
+                        delete pat.automation[this.automationParam];
+                    }
+                    this.drawAutomation();
+                    this.autoSave();
+                    this.setStatus('Automation lane cleared');
+                });
+            }
+
+            if (this.automationCanvas) {
+                this.automationCanvas.addEventListener('mousedown', (e) => this.handleAutomationMouseDown(e));
+                this.automationCanvas.addEventListener('mousemove', (e) => this.handleAutomationMouseMove(e));
+                this.automationCanvas.addEventListener('mouseup', () => { this.automationDragging = false; });
+                this.automationCanvas.addEventListener('mouseleave', () => { this.automationDragging = false; });
+                this.automationCanvas.addEventListener('contextmenu', (e) => this.handleAutomationRightClick(e));
             }
 
             // Keyboard events
@@ -1513,8 +1692,11 @@
             if (e.ctrlKey && !e.shiftKey && e.key === 'z') {
                 e.preventDefault();
                 if (this.state.undo()) {
-                    this.updateSequencerDisplay();
+                    this.syncStepsDropdown();
+                    this.buildStepIndicators();
+                    this.buildSequencerGrid();
                     this.drawPianoRoll();
+                    this.drawAutomation();
                     this.flashUndo();
                     this.setStatus('Undo');
                     this.autoSave();
@@ -1526,8 +1708,11 @@
             if (e.ctrlKey && e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
                 e.preventDefault();
                 if (this.state.redo()) {
-                    this.updateSequencerDisplay();
+                    this.syncStepsDropdown();
+                    this.buildStepIndicators();
+                    this.buildSequencerGrid();
                     this.drawPianoRoll();
+                    this.drawAutomation();
                     this.setStatus('Redo');
                     this.autoSave();
                 }
@@ -1553,8 +1738,11 @@
             if (e.ctrlKey && e.key === 'v') {
                 e.preventDefault();
                 if (this.state.pastePattern()) {
-                    this.updateSequencerDisplay();
+                    this.syncStepsDropdown();
+                    this.buildStepIndicators();
+                    this.buildSequencerGrid();
                     this.drawPianoRoll();
+                    this.drawAutomation();
                     this.autoSave();
                     this.setStatus('Pattern pasted');
                 }
@@ -1588,8 +1776,8 @@
 
                     // If playing and recording, insert note at current step
                     if (this.playing && this.recording && this.currentStep >= 0) {
-                        const pattern = this.state.getCurrentPattern();
-                        const stepData = pattern[this.pianoRollChannel][this.currentStep];
+                        const channels = this.state.getCurrentPatternChannels();
+                        const stepData = channels[this.pianoRollChannel][this.currentStep];
                         stepData.on = true;
                         stepData.note = midiNote;
                         this.updateStepDisplay(this.pianoRollChannel, this.currentStep);
@@ -1604,8 +1792,11 @@
                 const patIdx = parseInt(e.key) - 1;
                 this.state.currentPattern = patIdx;
                 document.querySelectorAll('.pattern-btn').forEach((b, i) => b.classList.toggle('active', i === patIdx));
-                this.updateSequencerDisplay();
+                this.syncStepsDropdown();
+                this.buildStepIndicators();
+                this.buildSequencerGrid();
                 this.drawPianoRoll();
+                this.drawAutomation();
             }
         }
 
@@ -1701,17 +1892,10 @@
 
         scheduler() {
             if (!this.playing) return;
+            const steps = this.state.getSteps();
 
             while (this.nextStepTime < this.audio.ctx.currentTime + this.scheduleAheadTime) {
-                this.currentStep = (this.currentStep + 1) % STEPS;
-
-                // Song mode: advance pattern when step wraps to 0
-                if (this.currentStep === 0 && this.playMode === 'song' && this.state.songChain.length > 0) {
-                    // On first play, songChainIndex is already 0
-                    if (this.nextStepTime > this.audio.ctx.currentTime) {
-                        // Not the very first step
-                    }
-                }
+                this.currentStep = (this.currentStep + 1) % steps;
 
                 // Calculate swing
                 const swingOffset = (this.currentStep % 2 === 1) ? (this.swing / 100) * (60 / this.bpm / 4) : 0;
@@ -1730,7 +1914,7 @@
                 this.nextStepTime += stepDuration;
 
                 // Check if we wrapped and need to advance song
-                if (this.currentStep === STEPS - 1 && this.playMode === 'song' && this.state.songChain.length > 0) {
+                if (this.currentStep === steps - 1 && this.playMode === 'song' && this.state.songChain.length > 0) {
                     this.songChainIndex++;
                     if (this.songChainIndex >= this.state.songChain.length) {
                         if (this.songLoop) {
@@ -1744,7 +1928,9 @@
                         this.state.currentPattern = this.state.songChain[this.songChainIndex];
                         setTimeout(() => {
                             this.updatePatternButtons();
-                            this.updateSequencerDisplay();
+                            this.syncStepsDropdown();
+                            this.buildStepIndicators();
+                            this.buildSequencerGrid();
                             this.updateSongChainDisplay();
                         }, uiDelay);
                     }
@@ -1755,12 +1941,85 @@
         }
 
         playStep(step, time) {
-            const pattern = this.state.getCurrentPattern();
+            const pat = this.state.getCurrentPattern();
+            const channels = pat.channels;
+            const stepDurationSec = 60 / this.bpm / 4;
+
+            // Apply automation BEFORE playing audio
+            this.applyAutomation(pat, step, time);
+
+            // Metronome click
+            if (this.metronome.enabled) {
+                const beatsPerPattern = Math.max(4, pat.stepsCount / 4);
+                if (step % 4 === 0) {
+                    this.audio.playClick(time, step === 0);
+                }
+            }
+
             for (let ch = 0; ch < CHANNELS.length; ch++) {
-                const stepData = pattern[ch][step];
+                const stepData = channels[ch][step];
                 if (stepData.on) {
                     const isOpen = (ch === 2) ? stepData.open : false;
-                    this.audio.playChannel(ch, time, stepData.velocity, stepData.note, isOpen);
+                    const noteLength = (stepData.duration || 1) * stepDurationSec;
+                    this.audio.playChannel(ch, time, stepData.velocity, stepData.note, isOpen, noteLength);
+                }
+            }
+        }
+
+        // ---- Automation Playback ----
+        applyAutomation(pat, step, time) {
+            if (!pat.automation || !this.audio.ctx) return;
+            const stepDuration = 60 / this.bpm / 4;
+
+            for (const [paramKey, values] of Object.entries(pat.automation)) {
+                if (!values || values[step] === null || values[step] === undefined) continue;
+                const val = values[step]; // 0.0-1.0 normalized
+
+                // Find next non-null value for interpolation
+                let nextVal = val;
+                let stepsToNext = 1;
+                for (let i = 1; i < pat.stepsCount; i++) {
+                    const nextStep = (step + i) % pat.stepsCount;
+                    if (values[nextStep] !== null && values[nextStep] !== undefined) {
+                        nextVal = values[nextStep];
+                        stepsToNext = i;
+                        break;
+                    }
+                }
+                const rampTime = stepsToNext * stepDuration;
+
+                if (paramKey === 'master-filter') {
+                    // Map 0-1 to 100-20000Hz (logarithmic)
+                    const freq = 100 * Math.pow(200, val);
+                    const nextFreq = 100 * Math.pow(200, nextVal);
+                    this.audio.filterNode.frequency.setValueAtTime(freq, time);
+                    this.audio.filterNode.frequency.linearRampToValueAtTime(nextFreq, time + rampTime);
+                } else if (paramKey === 'master-resonance') {
+                    const q = val * 30;
+                    this.audio.filterNode.Q.setValueAtTime(q, time);
+                } else if (paramKey === 'master-reverb') {
+                    this.audio.reverbGain.gain.setValueAtTime(val, time);
+                } else if (paramKey === 'master-delay') {
+                    this.audio.delayGain.gain.setValueAtTime(val, time);
+                } else if (paramKey === 'master-distortion') {
+                    // Can't automate WaveShaper curve smoothly, just set it
+                    this.audio.distortionNode.curve = this.audio.makeDistortionCurve(val);
+                } else if (paramKey.startsWith('channel-')) {
+                    const parts = paramKey.split('-');
+                    const chIdx = parseInt(parts[1]);
+                    const paramType = parts[2];
+                    if (paramType === 'volume' && this.audio.channelGains[chIdx]) {
+                        const mappedVal = val; // 0-1
+                        this.audio.channelGains[chIdx].gain.setValueAtTime(mappedVal, time);
+                        this.audio.channelGains[chIdx].gain.linearRampToValueAtTime(
+                            nextVal, time + rampTime
+                        );
+                    }
+                    // cutoff automation for synth channels would require per-note filter,
+                    // which is complex; we update the channel param instead for next note
+                    if (paramType === 'cutoff') {
+                        this.audio.channelParams[chIdx].cutoff = val * 100;
+                    }
                 }
             }
         }
@@ -1806,9 +2065,9 @@
 
         // ---- Display Updates ----
         updateSequencerDisplay() {
-            const pattern = this.state.getCurrentPattern();
+            const steps = this.state.getSteps();
             for (let ch = 0; ch < CHANNELS.length; ch++) {
-                for (let s = 0; s < STEPS; s++) {
+                for (let s = 0; s < steps; s++) {
                     this.updateStepDisplay(ch, s);
                 }
             }
@@ -1870,9 +2129,12 @@
             const ctx = this.pianoCtx;
             const w = this.pianoCanvas.width;
             const h = this.pianoCanvas.height;
+            const noteAreaH = 480;
+            const velAreaH = h - noteAreaH; // 60px
             const rows = 24; // 2 octaves
-            const rowH = h / rows;
-            const colW = w / STEPS;
+            const rowH = noteAreaH / rows;
+            const steps = this.state.getSteps();
+            const colW = w / steps;
 
             ctx.clearRect(0, 0, w, h);
 
@@ -1898,7 +2160,245 @@
             }
 
             // Vertical grid lines
-            for (let s = 0; s <= STEPS; s++) {
+            for (let s = 0; s <= steps; s++) {
+                ctx.strokeStyle = s % 4 === 0 ? '#333355' : '#1a1a35';
+                ctx.lineWidth = s % 4 === 0 ? 1 : 0.5;
+                ctx.beginPath();
+                ctx.moveTo(s * colW, 0);
+                ctx.lineTo(s * colW, noteAreaH);
+                ctx.stroke();
+            }
+
+            // Draw notes with duration
+            const channels = this.state.getCurrentPatternChannels();
+            const ch = this.pianoRollChannel;
+            const baseNote = (this.pianoRollOctave + 1) * 12;
+            const color = CHANNELS[ch].color;
+
+            for (let s = 0; s < steps; s++) {
+                const stepData = channels[ch][s];
+                if (stepData.on) {
+                    const noteOffset = stepData.note - baseNote;
+                    if (noteOffset >= 0 && noteOffset < rows) {
+                        const row = rows - 1 - noteOffset;
+                        const dur = stepData.duration || 1;
+                        const noteW = Math.min(dur, steps - s) * colW;
+
+                        ctx.fillStyle = color;
+                        ctx.globalAlpha = 0.3 + stepData.velocity * 0.7;
+                        ctx.fillRect(s * colW + 1, row * rowH + 1, noteW - 2, rowH - 2);
+                        ctx.globalAlpha = 1;
+
+                        // Border
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = 1;
+                        ctx.strokeRect(s * colW + 1, row * rowH + 1, noteW - 2, rowH - 2);
+                    }
+                }
+            }
+
+            // Draw dragging preview
+            if (this.pianoRollDragging && this.pianoRollDragStep >= 0) {
+                const noteOffset = this.pianoRollDragNote - baseNote;
+                if (noteOffset >= 0 && noteOffset < rows) {
+                    const row = rows - 1 - noteOffset;
+                    const dur = this.pianoRollDragDuration;
+                    const noteW = Math.min(dur, steps - this.pianoRollDragStep) * colW;
+                    ctx.fillStyle = color;
+                    ctx.globalAlpha = 0.4;
+                    ctx.fillRect(this.pianoRollDragStep * colW + 1, row * rowH + 1, noteW - 2, rowH - 2);
+                    ctx.globalAlpha = 1;
+                }
+            }
+
+            // Separator line between notes and velocity
+            ctx.strokeStyle = '#444466';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, noteAreaH);
+            ctx.lineTo(w, noteAreaH);
+            ctx.stroke();
+
+            // Velocity lane background
+            ctx.fillStyle = '#0a0a16';
+            ctx.fillRect(0, noteAreaH, w, velAreaH);
+
+            // Velocity lane vertical grid
+            for (let s = 0; s <= steps; s++) {
+                ctx.strokeStyle = s % 4 === 0 ? '#333355' : '#1a1a35';
+                ctx.lineWidth = s % 4 === 0 ? 1 : 0.5;
+                ctx.beginPath();
+                ctx.moveTo(s * colW, noteAreaH);
+                ctx.lineTo(s * colW, h);
+                ctx.stroke();
+            }
+
+            // Velocity bars
+            for (let s = 0; s < steps; s++) {
+                const stepData = channels[ch][s];
+                if (stepData.on) {
+                    const barH = stepData.velocity * (velAreaH - 5);
+                    ctx.fillStyle = color;
+                    ctx.globalAlpha = 0.7;
+                    ctx.fillRect(s * colW + 2, h - barH - 2, colW - 4, barH);
+                    ctx.globalAlpha = 1;
+                }
+            }
+
+            // Playhead
+            if (this.playing && this.currentStep >= 0) {
+                ctx.strokeStyle = '#00ff87';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(this.currentStep * colW, 0);
+                ctx.lineTo(this.currentStep * colW, h);
+                ctx.stroke();
+            }
+        }
+
+        handlePianoRollMouseDown(e) {
+            const rect = this.pianoCanvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const scaleX = this.pianoCanvas.width / rect.width;
+            const scaleY = this.pianoCanvas.height / rect.height;
+            const canvasX = x * scaleX;
+            const canvasY = y * scaleY;
+
+            const steps = this.state.getSteps();
+            const noteAreaH = 480;
+            const velAreaH = this.pianoCanvas.height - noteAreaH;
+            const rows = 24;
+            const rowH = noteAreaH / rows;
+            const colW = this.pianoCanvas.width / steps;
+
+            // Check if click is in velocity lane
+            if (canvasY > noteAreaH) {
+                this.velocityDragging = true;
+                this.handleVelocityEdit(canvasX, canvasY, noteAreaH, velAreaH, colW, steps);
+                return;
+            }
+
+            // Note area
+            const step = Math.floor(canvasX / colW);
+            const row = Math.floor(canvasY / rowH);
+            const noteOffset = rows - 1 - row;
+            const baseNote = (this.pianoRollOctave + 1) * 12;
+            const midiNote = baseNote + noteOffset;
+
+            if (step < 0 || step >= steps || midiNote < 0 || midiNote > 127) return;
+
+            const channels = this.state.getCurrentPatternChannels();
+            const ch = this.pianoRollChannel;
+            const stepData = channels[ch][step];
+
+            if (stepData.on && stepData.note === midiNote) {
+                // Toggle off
+                this.state.pushUndo();
+                stepData.on = false;
+                this.updateStepDisplay(ch, step);
+                this.drawPianoRoll();
+                this.autoSave();
+            } else {
+                // Start dragging to set note with duration
+                this.state.pushUndo();
+                this.pianoRollDragging = true;
+                this.pianoRollDragStep = step;
+                this.pianoRollDragNote = midiNote;
+                this.pianoRollDragDuration = 1;
+                this.audio.previewNote(ch, midiNote);
+            }
+        }
+
+        handlePianoRollMouseMove(e) {
+            if (this.velocityDragging) {
+                const rect = this.pianoCanvas.getBoundingClientRect();
+                const x = (e.clientX - rect.left) * (this.pianoCanvas.width / rect.width);
+                const y = (e.clientY - rect.top) * (this.pianoCanvas.height / rect.height);
+                const noteAreaH = 480;
+                const velAreaH = this.pianoCanvas.height - noteAreaH;
+                const steps = this.state.getSteps();
+                const colW = this.pianoCanvas.width / steps;
+                this.handleVelocityEdit(x, y, noteAreaH, velAreaH, colW, steps);
+                return;
+            }
+
+            if (!this.pianoRollDragging) return;
+
+            const rect = this.pianoCanvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (this.pianoCanvas.width / rect.width);
+            const steps = this.state.getSteps();
+            const colW = this.pianoCanvas.width / steps;
+
+            const currentCol = Math.floor(x / colW);
+            const duration = Math.max(1, Math.min(currentCol - this.pianoRollDragStep + 1, steps - this.pianoRollDragStep));
+            this.pianoRollDragDuration = duration;
+            this.drawPianoRoll();
+        }
+
+        handlePianoRollMouseUp(e) {
+            if (this.velocityDragging) {
+                this.velocityDragging = false;
+                this.autoSave();
+                return;
+            }
+
+            if (!this.pianoRollDragging) return;
+            this.pianoRollDragging = false;
+
+            const channels = this.state.getCurrentPatternChannels();
+            const ch = this.pianoRollChannel;
+            const step = this.pianoRollDragStep;
+            const steps = this.state.getSteps();
+
+            if (step >= 0 && step < steps) {
+                const stepData = channels[ch][step];
+                stepData.on = true;
+                stepData.note = this.pianoRollDragNote;
+                stepData.velocity = 0.8;
+                stepData.duration = this.pianoRollDragDuration;
+                this.updateStepDisplay(ch, step);
+            }
+
+            this.pianoRollDragStep = -1;
+            this.drawPianoRoll();
+            this.autoSave();
+        }
+
+        handleVelocityEdit(canvasX, canvasY, noteAreaH, velAreaH, colW, steps) {
+            const step = Math.floor(canvasX / colW);
+            if (step < 0 || step >= steps) return;
+
+            const channels = this.state.getCurrentPatternChannels();
+            const ch = this.pianoRollChannel;
+            const stepData = channels[ch][step];
+            if (!stepData.on) return;
+
+            // Calculate velocity from y position (bottom = 0, top of vel area = 1)
+            const relY = canvasY - noteAreaH;
+            const velocity = Math.max(0.05, Math.min(1, 1 - (relY / velAreaH)));
+            stepData.velocity = Math.round(velocity * 100) / 100;
+            this.drawPianoRoll();
+        }
+
+        // ---- Automation Drawing ----
+        drawAutomation() {
+            if (!this.automationCtx || !this.automationCanvas) return;
+            const ctx = this.automationCtx;
+            const w = this.automationCanvas.width;
+            const h = this.automationCanvas.height;
+            const steps = this.state.getSteps();
+            const colW = w / steps;
+            const pat = this.state.getCurrentPattern();
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Background
+            ctx.fillStyle = '#0d0d1a';
+            ctx.fillRect(0, 0, w, h);
+
+            // Grid lines
+            for (let s = 0; s <= steps; s++) {
                 ctx.strokeStyle = s % 4 === 0 ? '#333355' : '#1a1a35';
                 ctx.lineWidth = s % 4 === 0 ? 1 : 0.5;
                 ctx.beginPath();
@@ -1907,27 +2407,81 @@
                 ctx.stroke();
             }
 
-            // Draw notes
-            const pattern = this.state.getCurrentPattern();
-            const ch = this.pianoRollChannel;
-            const baseNote = (this.pianoRollOctave + 1) * 12;
-            const color = CHANNELS[ch].color;
+            // Horizontal guide lines
+            for (let i = 0; i <= 4; i++) {
+                const y = (i / 4) * h;
+                ctx.strokeStyle = '#222240';
+                ctx.lineWidth = 0.5;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(w, y);
+                ctx.stroke();
+            }
 
-            for (let s = 0; s < STEPS; s++) {
-                const stepData = pattern[ch][s];
-                if (stepData.on) {
-                    const noteOffset = stepData.note - baseNote;
-                    if (noteOffset >= 0 && noteOffset < rows) {
-                        const row = rows - 1 - noteOffset;
-                        ctx.fillStyle = color;
-                        ctx.globalAlpha = 0.3 + stepData.velocity * 0.7;
-                        ctx.fillRect(s * colW + 1, row * rowH + 1, colW - 2, rowH - 2);
-                        ctx.globalAlpha = 1;
+            // Draw automation data
+            const values = pat.automation ? pat.automation[this.automationParam] : null;
+            if (values) {
+                // Filled area
+                ctx.beginPath();
+                let started = false;
+                for (let s = 0; s < steps; s++) {
+                    if (values[s] !== null && values[s] !== undefined) {
+                        const x = s * colW + colW / 2;
+                        const y = (1 - values[s]) * h;
+                        if (!started) {
+                            ctx.moveTo(x, h);
+                            ctx.lineTo(x, y);
+                            started = true;
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+                }
+                if (started) {
+                    // Close at bottom
+                    for (let s = steps - 1; s >= 0; s--) {
+                        if (values[s] !== null && values[s] !== undefined) {
+                            const x = s * colW + colW / 2;
+                            ctx.lineTo(x, h);
+                            break;
+                        }
+                    }
+                    ctx.closePath();
+                    ctx.fillStyle = 'rgba(255, 107, 53, 0.15)';
+                    ctx.fill();
+                }
 
-                        // Border
-                        ctx.strokeStyle = color;
+                // Line
+                ctx.beginPath();
+                started = false;
+                for (let s = 0; s < steps; s++) {
+                    if (values[s] !== null && values[s] !== undefined) {
+                        const x = s * colW + colW / 2;
+                        const y = (1 - values[s]) * h;
+                        if (!started) {
+                            ctx.moveTo(x, y);
+                            started = true;
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+                }
+                ctx.strokeStyle = '#ff6b35';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Points
+                for (let s = 0; s < steps; s++) {
+                    if (values[s] !== null && values[s] !== undefined) {
+                        const x = s * colW + colW / 2;
+                        const y = (1 - values[s]) * h;
+                        ctx.beginPath();
+                        ctx.arc(x, y, 4, 0, Math.PI * 2);
+                        ctx.fillStyle = '#ff6b35';
+                        ctx.fill();
+                        ctx.strokeStyle = '#fff';
                         ctx.lineWidth = 1;
-                        ctx.strokeRect(s * colW + 1, row * rowH + 1, colW - 2, rowH - 2);
+                        ctx.stroke();
                     }
                 }
             }
@@ -1943,43 +2497,59 @@
             }
         }
 
-        handlePianoRollClick(e) {
-            const rect = this.pianoCanvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            const scaleX = this.pianoCanvas.width / rect.width;
-            const scaleY = this.pianoCanvas.height / rect.height;
+        handleAutomationMouseDown(e) {
+            if (e.button === 2) return; // Right-click handled separately
+            this.automationDragging = true;
+            this.setAutomationPoint(e);
+        }
 
-            const rows = 24;
-            const rowH = this.pianoCanvas.height / rows;
-            const colW = this.pianoCanvas.width / STEPS;
+        handleAutomationMouseMove(e) {
+            if (!this.automationDragging) return;
+            this.setAutomationPoint(e);
+        }
 
-            const step = Math.floor(x * scaleX / colW);
-            const row = Math.floor(y * scaleY / rowH);
-            const noteOffset = rows - 1 - row;
-            const baseNote = (this.pianoRollOctave + 1) * 12;
-            const midiNote = baseNote + noteOffset;
+        setAutomationPoint(e) {
+            const rect = this.automationCanvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (this.automationCanvas.width / rect.width);
+            const y = (e.clientY - rect.top) * (this.automationCanvas.height / rect.height);
+            const steps = this.state.getSteps();
+            const colW = this.automationCanvas.width / steps;
+            const h = this.automationCanvas.height;
 
-            if (step < 0 || step >= STEPS || midiNote < 0 || midiNote > 127) return;
+            const step = Math.floor(x / colW);
+            if (step < 0 || step >= steps) return;
 
-            this.state.pushUndo();
-            const pattern = this.state.getCurrentPattern();
-            const ch = this.pianoRollChannel;
-            const stepData = pattern[ch][step];
+            const value = Math.max(0, Math.min(1, 1 - y / h));
 
-            if (stepData.on && stepData.note === midiNote) {
-                stepData.on = false;
-            } else {
-                stepData.on = true;
-                stepData.note = midiNote;
-                stepData.velocity = 0.8;
-                // Preview sound
-                this.audio.previewNote(ch, midiNote);
+            const pat = this.state.getCurrentPattern();
+            if (!pat.automation) pat.automation = {};
+            if (!pat.automation[this.automationParam]) {
+                pat.automation[this.automationParam] = new Array(steps).fill(null);
             }
-
-            this.updateStepDisplay(ch, step);
-            this.drawPianoRoll();
+            // Ensure array length matches
+            while (pat.automation[this.automationParam].length < steps) {
+                pat.automation[this.automationParam].push(null);
+            }
+            pat.automation[this.automationParam][step] = Math.round(value * 100) / 100;
+            this.drawAutomation();
             this.autoSave();
+        }
+
+        handleAutomationRightClick(e) {
+            e.preventDefault();
+            const rect = this.automationCanvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (this.automationCanvas.width / rect.width);
+            const steps = this.state.getSteps();
+            const colW = this.automationCanvas.width / steps;
+            const step = Math.floor(x / colW);
+            if (step < 0 || step >= steps) return;
+
+            const pat = this.state.getCurrentPattern();
+            if (pat.automation && pat.automation[this.automationParam]) {
+                pat.automation[this.automationParam][step] = null;
+                this.drawAutomation();
+                this.autoSave();
+            }
         }
 
         // ---- Presets ----
@@ -1991,8 +2561,8 @@
             this.bpm = preset.bpm;
             document.getElementById('bpm').value = this.bpm;
 
-            // Clear current pattern
-            const pattern = this.state.createEmptyPattern();
+            // Clear current pattern (16-step default for presets)
+            const pattern = this.state.createEmptyPattern(DEFAULT_STEPS);
 
             // Apply preset steps
             for (const [chStr, chData] of Object.entries(preset.steps)) {
@@ -2002,13 +2572,13 @@
                 if (chData.on) {
                     for (let i = 0; i < chData.on.length; i++) {
                         const step = chData.on[i];
-                        if (step < STEPS) {
-                            pattern[ch][step].on = true;
+                        if (step < DEFAULT_STEPS) {
+                            pattern.channels[ch][step].on = true;
                             if (chData.notes && chData.notes[i] !== undefined) {
-                                pattern[ch][step].note = chData.notes[i];
+                                pattern.channels[ch][step].note = chData.notes[i];
                             }
                             if (chData.velocity && chData.velocity[step] !== undefined) {
-                                pattern[ch][step].velocity = chData.velocity[step];
+                                pattern.channels[ch][step].velocity = chData.velocity[step];
                             }
                         }
                     }
@@ -2016,17 +2586,20 @@
 
                 // Apply velocity to all 16 steps if provided as array
                 if (chData.velocity) {
-                    for (let s = 0; s < STEPS; s++) {
-                        if (chData.velocity[s] !== undefined && pattern[ch][s].on) {
-                            pattern[ch][s].velocity = chData.velocity[s];
+                    for (let s = 0; s < DEFAULT_STEPS; s++) {
+                        if (chData.velocity[s] !== undefined && pattern.channels[ch][s].on) {
+                            pattern.channels[ch][s].velocity = chData.velocity[s];
                         }
                     }
                 }
             }
 
             this.state.patterns[this.state.currentPattern] = pattern;
-            this.updateSequencerDisplay();
+            this.syncStepsDropdown();
+            this.buildStepIndicators();
+            this.buildSequencerGrid();
             this.drawPianoRoll();
+            this.drawAutomation();
             this.autoSave();
             this.setStatus('Loaded preset: ' + name);
         }
@@ -2124,7 +2697,7 @@
 
         serializeProject() {
             return {
-                version: 2,
+                version: 3,
                 bpm: this.bpm,
                 swing: this.swing,
                 patterns: JSON.parse(JSON.stringify(this.state.patterns)),
@@ -2132,12 +2705,15 @@
                 songChain: [...this.state.songChain],
                 channelParams: JSON.parse(JSON.stringify(this.audio.channelParams)),
                 sidechainAmount: this.audio.sidechainAmount,
-                sidechainRelease: this.audio.sidechainRelease
+                sidechainRelease: this.audio.sidechainRelease,
+                metronome: { enabled: this.metronome.enabled, volume: this.metronome.volume }
             };
         }
 
         deserializeProject(data) {
             if (!data) return;
+            const version = data.version || 1;
+
             if (typeof data.bpm === 'number') {
                 this.bpm = data.bpm;
                 document.getElementById('bpm').value = this.bpm;
@@ -2148,9 +2724,66 @@
                 document.getElementById('swing-val').textContent = this.swing + '%';
             }
             if (data.patterns) {
-                this.state.patterns = data.patterns;
+                // Handle v2 -> v3 migration
+                if (version <= 2) {
+                    // v2 patterns are flat arrays (pattern = array of channels, each channel = array of steps)
+                    const migratedPatterns = [];
+                    for (let p = 0; p < data.patterns.length; p++) {
+                        const oldPat = data.patterns[p];
+                        // Check if already in v3 format (has stepsCount property)
+                        if (oldPat && oldPat.stepsCount !== undefined) {
+                            // Already v3 format, just ensure duration and automation exist
+                            for (let ch = 0; ch < CHANNELS.length; ch++) {
+                                if (oldPat.channels && oldPat.channels[ch]) {
+                                    for (let s = 0; s < oldPat.channels[ch].length; s++) {
+                                        if (oldPat.channels[ch][s].duration === undefined) {
+                                            oldPat.channels[ch][s].duration = 1;
+                                        }
+                                    }
+                                }
+                            }
+                            if (!oldPat.automation) oldPat.automation = {};
+                            migratedPatterns.push(oldPat);
+                        } else if (Array.isArray(oldPat)) {
+                            // v2 format: pattern is just an array of channels
+                            const stepsCount = (oldPat[0] && oldPat[0].length) || DEFAULT_STEPS;
+                            const newPat = { stepsCount: stepsCount, channels: oldPat, automation: {} };
+                            // Add duration to each step
+                            for (let ch = 0; ch < newPat.channels.length; ch++) {
+                                for (let s = 0; s < newPat.channels[ch].length; s++) {
+                                    if (newPat.channels[ch][s].duration === undefined) {
+                                        newPat.channels[ch][s].duration = 1;
+                                    }
+                                }
+                            }
+                            migratedPatterns.push(newPat);
+                        }
+                    }
+                    this.state.patterns = migratedPatterns;
+                } else {
+                    this.state.patterns = data.patterns;
+                }
+
                 while (this.state.patterns.length < NUM_PATTERNS) {
-                    this.state.patterns.push(this.state.createEmptyPattern());
+                    this.state.patterns.push(this.state.createEmptyPattern(DEFAULT_STEPS));
+                }
+
+                // Ensure all patterns have the new structure
+                for (let p = 0; p < this.state.patterns.length; p++) {
+                    const pat = this.state.patterns[p];
+                    if (!pat.automation) pat.automation = {};
+                    if (!pat.stepsCount) pat.stepsCount = DEFAULT_STEPS;
+                    if (!pat.channels) {
+                        // Shouldn't happen, but safety
+                        pat.channels = [];
+                        for (let ch = 0; ch < CHANNELS.length; ch++) {
+                            const channel = [];
+                            for (let s = 0; s < pat.stepsCount; s++) {
+                                channel.push({ on: false, velocity: 0.8, note: 48, open: false, duration: 1 });
+                            }
+                            pat.channels.push(channel);
+                        }
+                    }
                 }
             }
             if (typeof data.currentPattern === 'number') {
@@ -2179,9 +2812,17 @@
                     document.getElementById('sc-release-val').textContent = data.sidechainRelease + 'ms';
                 }
             }
+            if (data.metronome) {
+                this.metronome.enabled = data.metronome.enabled || false;
+                this.metronome.volume = data.metronome.volume || 0.5;
+                document.getElementById('btn-metronome').classList.toggle('active', this.metronome.enabled);
+            }
 
-            this.updateSequencerDisplay();
+            this.syncStepsDropdown();
+            this.buildStepIndicators();
+            this.buildSequencerGrid();
             this.drawPianoRoll();
+            this.drawAutomation();
             this.updateSongChainDisplay();
             this.updateSynthParams();
         }
@@ -2276,6 +2917,10 @@
                 if (this.activeTab === 'pianoroll') {
                     this.drawPianoRoll();
                 }
+                // Redraw automation playhead
+                if (this.activeTab === 'automation') {
+                    this.drawAutomation();
+                }
             };
 
             draw();
@@ -2283,8 +2928,8 @@
 
         // ---- Status ----
         setStatus(msg) {
-            const el = document.getElementById('status-left');
-            if (el) el.textContent = msg;
+            const statusEl = document.getElementById('status-left');
+            if (statusEl) statusEl.textContent = msg;
         }
     }
 
