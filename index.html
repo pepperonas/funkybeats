@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FunkyBeats - Electronic Music Producer</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>🎹</text></svg>">
+</head>
+<body>
+    <div id="app">
+        <!-- Header / Transport -->
+        <header id="transport">
+            <div class="logo">
+                <span class="logo-icon">&#9835;</span>
+                <span class="logo-text">FUNKY<span class="accent">BEATS</span></span>
+            </div>
+            <div class="transport-controls">
+                <button id="btn-play" class="transport-btn" title="Play (Space)">&#9654;</button>
+                <button id="btn-stop" class="transport-btn" title="Stop (Space)">&#9632;</button>
+                <button id="btn-record" class="transport-btn rec-btn" title="Record">&#9679;</button>
+                <div class="transport-divider"></div>
+                <div class="bpm-control">
+                    <label>BPM</label>
+                    <input type="number" id="bpm" value="128" min="60" max="200" step="1">
+                </div>
+                <div class="swing-control">
+                    <label>SWING</label>
+                    <input type="range" id="swing" min="0" max="100" value="0" class="knob-range">
+                    <span id="swing-val">0%</span>
+                </div>
+                <div class="transport-divider"></div>
+                <div class="pattern-selector">
+                    <label>PATTERN</label>
+                    <div class="pattern-btns">
+                        <button class="pattern-btn active" data-pattern="0">1</button>
+                        <button class="pattern-btn" data-pattern="1">2</button>
+                        <button class="pattern-btn" data-pattern="2">3</button>
+                        <button class="pattern-btn" data-pattern="3">4</button>
+                    </div>
+                </div>
+            </div>
+            <div class="transport-right">
+                <div class="preset-selector">
+                    <label>PRESET</label>
+                    <select id="preset-select">
+                        <option value="">-- Leer --</option>
+                        <option value="four-on-floor">Four on the Floor</option>
+                        <option value="breakbeat">Breakbeat</option>
+                        <option value="minimal-techno">Minimal Techno</option>
+                        <option value="deep-house">Deep House</option>
+                        <option value="drum-n-bass">Drum & Bass</option>
+                        <optgroup label="Phonk D Style">
+                            <option value="phonk-jackin">Phonk D - Jackin Groove</option>
+                            <option value="phonk-filtered-disko">Phonk D - Filtered Disko</option>
+                            <option value="phonk-bumpin">Phonk D - Bumpin Percussion</option>
+                            <option value="phonk-stabs">Phonk D - Funky Stabs</option>
+                            <option value="phonk-deep-jackin">Phonk D - Deep Jackin</option>
+                        </optgroup>
+                        <optgroup label="Storken Style">
+                            <option value="storken-lille-vals">Storken - Lille Vals</option>
+                            <option value="storken-skogsdisko">Storken - Skogsdisko</option>
+                            <option value="storken-italo-arp">Storken - Italo Arpeggio</option>
+                            <option value="storken-scandi-cosmic">Storken - Scandi Cosmic</option>
+                            <option value="storken-stupidisco">Storken - Stupidisco</option>
+                        </optgroup>
+                        <optgroup label="Thomas Hammann Style">
+                            <option value="hammann-808mate">808 Mate (Workshop)</option>
+                            <option value="hammann-liquid">Liquid Night (Robert Johnson)</option>
+                            <option value="hammann-wahwah">Wah-Wah Boogie</option>
+                            <option value="hammann-ffm-deep">Frankfurt Deep</option>
+                            <option value="hammann-digger">Record Digger</option>
+                        </optgroup>
+                    </select>
+                </div>
+                <button id="btn-export" class="transport-btn export-btn" title="Export WAV">WAV</button>
+            </div>
+        </header>
+
+        <!-- Tab Bar -->
+        <nav id="tab-bar">
+            <button class="tab active" data-tab="sequencer">STEP SEQUENCER</button>
+            <button class="tab" data-tab="pianoroll">PIANO ROLL</button>
+            <button class="tab" data-tab="mixer">MIXER</button>
+        </nav>
+
+        <!-- Visualizer -->
+        <div id="visualizer-bar">
+            <canvas id="visualizer" width="1200" height="60"></canvas>
+            <div id="step-indicators">
+                <!-- Generated by JS -->
+            </div>
+        </div>
+
+        <!-- Main Panels -->
+        <main id="panels">
+            <!-- Step Sequencer -->
+            <section id="panel-sequencer" class="panel active">
+                <div class="sequencer-grid">
+                    <!-- Channel rows generated by JS -->
+                </div>
+            </section>
+
+            <!-- Piano Roll -->
+            <section id="panel-pianoroll" class="panel">
+                <div class="pianoroll-toolbar">
+                    <label>Channel:</label>
+                    <select id="pianoroll-channel">
+                        <option value="5">Bass</option>
+                        <option value="6">Lead</option>
+                        <option value="7">Pad</option>
+                    </select>
+                    <div class="pianoroll-divider"></div>
+                    <label>Octave:</label>
+                    <button id="octave-down" class="small-btn">-</button>
+                    <span id="octave-display">3</span>
+                    <button id="octave-up" class="small-btn">+</button>
+                    <div class="pianoroll-divider"></div>
+                    <button id="clear-notes" class="small-btn">Clear</button>
+                </div>
+                <div class="pianoroll-container">
+                    <div class="piano-keys" id="piano-keys">
+                        <!-- Generated by JS -->
+                    </div>
+                    <canvas id="pianoroll-canvas" width="800" height="480"></canvas>
+                </div>
+            </section>
+
+            <!-- Mixer -->
+            <section id="panel-mixer" class="panel">
+                <div class="mixer-channels" id="mixer-channels">
+                    <!-- Generated by JS -->
+                </div>
+            </section>
+        </main>
+
+        <!-- Effects Rack -->
+        <section id="effects-rack">
+            <h3>EFFECTS</h3>
+            <div class="effects-grid">
+                <div class="effect-unit">
+                    <span class="effect-label">REVERB</span>
+                    <input type="range" id="fx-reverb" min="0" max="100" value="20" class="fx-range">
+                    <span class="fx-val" id="fx-reverb-val">20%</span>
+                </div>
+                <div class="effect-unit">
+                    <span class="effect-label">DELAY</span>
+                    <input type="range" id="fx-delay" min="0" max="100" value="0" class="fx-range">
+                    <span class="fx-val" id="fx-delay-val">0%</span>
+                </div>
+                <div class="effect-unit">
+                    <span class="effect-label">DELAY TIME</span>
+                    <input type="range" id="fx-delay-time" min="1" max="16" value="4" class="fx-range" step="1">
+                    <span class="fx-val" id="fx-delay-time-val">1/4</span>
+                </div>
+                <div class="effect-unit">
+                    <span class="effect-label">FILTER</span>
+                    <input type="range" id="fx-filter" min="100" max="20000" value="20000" class="fx-range">
+                    <span class="fx-val" id="fx-filter-val">20kHz</span>
+                </div>
+                <div class="effect-unit">
+                    <span class="effect-label">RESONANCE</span>
+                    <input type="range" id="fx-resonance" min="0" max="30" value="0" class="fx-range" step="0.5">
+                    <span class="fx-val" id="fx-resonance-val">0</span>
+                </div>
+                <div class="effect-unit">
+                    <span class="effect-label">DISTORTION</span>
+                    <input type="range" id="fx-distortion" min="0" max="100" value="0" class="fx-range">
+                    <span class="fx-val" id="fx-distortion-val">0%</span>
+                </div>
+                <div class="effect-unit">
+                    <span class="effect-label">COMPRESSOR</span>
+                    <input type="range" id="fx-compressor" min="0" max="100" value="30" class="fx-range">
+                    <span class="fx-val" id="fx-compressor-val">30%</span>
+                </div>
+                <div class="effect-unit">
+                    <span class="effect-label">MASTER VOL</span>
+                    <input type="range" id="fx-master" min="0" max="100" value="80" class="fx-range">
+                    <span class="fx-val" id="fx-master-val">80%</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Status Bar -->
+        <footer id="status-bar">
+            <span id="status-left">Ready</span>
+            <span id="status-center"></span>
+            <span id="status-right">Web Audio API | 44.1kHz</span>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
