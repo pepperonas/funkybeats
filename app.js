@@ -3,6 +3,8 @@
 // Web Audio API Synthesized DAW Clone
 // v3.0 - Phase 1: Variable Length, Note Duration,
 //        Velocity Lane, Automation, Metronome
+// Phase 2: Chord/Stab/Organ, Per-Channel EQ & Sends,
+//          Sample Playback, Note Glide
 // ============================================
 
 (() => {
@@ -23,6 +25,9 @@
         { name: 'Bass', type: 'synth', color: '#00ff87', synth: 'bass' },
         { name: 'Lead', type: 'synth', color: '#ff6bb5', synth: 'lead' },
         { name: 'Pad', type: 'synth', color: '#64ffda', synth: 'pad' },
+        { name: 'Chord', type: 'synth', color: '#ff9ff3', synth: 'chord' },
+        { name: 'Stab', type: 'synth', color: '#f368e0', synth: 'stab' },
+        { name: 'Organ', type: 'synth', color: '#c8d6e5', synth: 'organ' },
     ];
 
     // QWERTY keyboard piano mapping
@@ -59,6 +64,31 @@
         return NOTE_NAMES[note % 12] + Math.floor(note / 12 - 1);
     }
 
+    // ---- Sample Manager ----
+    class SampleManager {
+        constructor() {
+            this.samples = {}; // channelIdx -> {buffer, name}
+        }
+
+        async loadSample(audioCtx, channelIdx, file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+            this.samples[channelIdx] = { buffer: audioBuffer, name: file.name };
+        }
+
+        clearSample(channelIdx) {
+            delete this.samples[channelIdx];
+        }
+
+        hasSample(channelIdx) {
+            return !!this.samples[channelIdx];
+        }
+
+        getSample(channelIdx) {
+            return this.samples[channelIdx];
+        }
+    }
+
     // ---- Audio Engine ----
     class AudioEngine {
         constructor() {
@@ -88,20 +118,49 @@
             this.sidechainRelease = 200;
             this.sidechainGains = []; // per non-kick channel
 
+            // Per-channel EQ
+            this.channelEqLow = [];
+            this.channelEqMid = [];
+            this.channelEqHigh = [];
+
+            // Per-channel send levels
+            this.channelReverbSends = [];
+            this.channelDelaySends = [];
+
             // Per-channel synth parameters
             this.channelParams = [];
             this.initChannelParams();
 
             // Open hihat choke tracking
             this.openHatNodes = [];
+
+            // Sample manager
+            this.sampleManager = new SampleManager();
+
+            // Glide tracking: last note frequency per channel
+            this.lastNoteFreq = {};
         }
 
         initChannelParams() {
             this.channelParams = CHANNELS.map((ch, i) => {
                 if (ch.type === 'drum') {
-                    return { tune: 0, decay: 50, tone: 50, drive: 0 };
+                    return {
+                        tune: 0, decay: 50, tone: 50, drive: 0,
+                        eqLow: 0, eqMid: 0, eqHigh: 0,
+                        reverbSend: 20, delaySend: 0
+                    };
                 } else {
-                    return { waveform: 'sawtooth', attack: 10, decay: 50, cutoff: 70, resonance: 5, detune: 5 };
+                    const base = {
+                        waveform: 'sawtooth', attack: 10, decay: 50,
+                        cutoff: 70, resonance: 5, detune: 5, glide: 0,
+                        eqLow: 0, eqMid: 0, eqHigh: 0,
+                        reverbSend: 20, delaySend: 0
+                    };
+                    // Chord channel gets extra chordType param
+                    if (i === 8) {
+                        base.chordType = 'minor';
+                    }
+                    return base;
                 }
             });
         }
@@ -158,7 +217,7 @@
             this.metronomeGain.gain.value = 0.5;
             this.metronomeGain.connect(this.ctx.destination);
 
-            // Channel gains and pans
+            // Channel gains, pans, EQ, and sends
             for (let i = 0; i < CHANNELS.length; i++) {
                 const gain = this.ctx.createGain();
                 gain.gain.value = 0.8;
@@ -167,15 +226,54 @@
                 this.channelGains.push(gain);
                 this.channelPans.push(pan);
 
-                // Sidechain gain node for non-kick channels
+                // Sidechain gain node
                 const scGain = this.ctx.createGain();
                 scGain.gain.value = 1;
                 this.sidechainGains.push(scGain);
 
-                // Routing: channelGain -> pan -> sidechainGain -> filter
-                gain.connect(pan);
+                // Per-channel 3-band EQ
+                const eqLow = this.ctx.createBiquadFilter();
+                eqLow.type = 'lowshelf';
+                eqLow.frequency.value = 80;
+                eqLow.gain.value = this.channelParams[i].eqLow || 0;
+
+                const eqMid = this.ctx.createBiquadFilter();
+                eqMid.type = 'peaking';
+                eqMid.frequency.value = 1000;
+                eqMid.Q.value = 1.0;
+                eqMid.gain.value = this.channelParams[i].eqMid || 0;
+
+                const eqHigh = this.ctx.createBiquadFilter();
+                eqHigh.type = 'highshelf';
+                eqHigh.frequency.value = 8000;
+                eqHigh.gain.value = this.channelParams[i].eqHigh || 0;
+
+                this.channelEqLow.push(eqLow);
+                this.channelEqMid.push(eqMid);
+                this.channelEqHigh.push(eqHigh);
+
+                // Per-channel reverb and delay sends
+                const reverbSend = this.ctx.createGain();
+                reverbSend.gain.value = (this.channelParams[i].reverbSend || 20) / 100;
+                const delaySend = this.ctx.createGain();
+                delaySend.gain.value = (this.channelParams[i].delaySend || 0) / 100;
+
+                this.channelReverbSends.push(reverbSend);
+                this.channelDelaySends.push(delaySend);
+
+                // Routing: channelGain -> eqLow -> eqMid -> eqHigh -> pan -> sidechainGain -> filter (dry)
+                gain.connect(eqLow);
+                eqLow.connect(eqMid);
+                eqMid.connect(eqHigh);
+                eqHigh.connect(pan);
                 pan.connect(scGain);
                 scGain.connect(this.filterNode);
+
+                // Send routing: after eqHigh, also connect to reverb/delay sends
+                eqHigh.connect(reverbSend);
+                eqHigh.connect(delaySend);
+                reverbSend.connect(this.reverbNode);
+                delaySend.connect(this.delayNode);
             }
 
             // Signal chain: filter -> distortion -> compressor -> masterGain -> analyser -> destination
@@ -185,13 +283,13 @@
             this.masterGain.connect(this.analyser);
             this.analyser.connect(this.ctx.destination);
 
-            // Reverb send: filter -> reverbNode -> reverbGain -> masterGain
-            this.filterNode.connect(this.reverbNode);
+            // Reverb: reverbNode -> reverbGain -> masterGain
+            // (per-channel sends connect to reverbNode directly above)
             this.reverbNode.connect(this.reverbGain);
             this.reverbGain.connect(this.masterGain);
 
-            // Delay send: filter -> delayNode -> delayFeedback -> delayNode, delayNode -> delayGain -> masterGain
-            this.filterNode.connect(this.delayNode);
+            // Delay: delayNode -> delayFeedback -> delayNode, delayNode -> delayGain -> masterGain
+            // (per-channel sends connect to delayNode directly above)
             this.delayNode.connect(this.delayFeedback);
             this.delayFeedback.connect(this.delayNode);
             this.delayNode.connect(this.delayGain);
@@ -223,6 +321,33 @@
                 curve[i] = k < 1 ? x : ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
             }
             return curve;
+        }
+
+        // Per-channel EQ setter
+        setChannelEq(ch, band, dB) {
+            if (band === 'low' && this.channelEqLow[ch]) {
+                this.channelEqLow[ch].gain.value = dB;
+            } else if (band === 'mid' && this.channelEqMid[ch]) {
+                this.channelEqMid[ch].gain.value = dB;
+            } else if (band === 'high' && this.channelEqHigh[ch]) {
+                this.channelEqHigh[ch].gain.value = dB;
+            }
+            this.channelParams[ch]['eq' + band.charAt(0).toUpperCase() + band.slice(1)] = dB;
+        }
+
+        // Per-channel send setters
+        setChannelReverbSend(ch, val) {
+            if (this.channelReverbSends[ch]) {
+                this.channelReverbSends[ch].gain.value = val / 100;
+            }
+            this.channelParams[ch].reverbSend = val;
+        }
+
+        setChannelDelaySend(ch, val) {
+            if (this.channelDelaySends[ch]) {
+                this.channelDelaySends[ch].gain.value = val / 100;
+            }
+            this.channelParams[ch].delaySend = val;
         }
 
         // Sidechain: duck non-kick channels when kick fires
@@ -265,6 +390,45 @@
             gain.connect(this.metronomeGain);
             osc.start(time);
             osc.stop(time + 0.03);
+        }
+
+        // ---- Sample Playback ----
+        playSampleNote(channelIdx, time, velocity, note) {
+            const sample = this.sampleManager.getSample(channelIdx);
+            if (!sample) return;
+            const source = this.ctx.createBufferSource();
+            source.buffer = sample.buffer;
+            // Apply tune from channelParams
+            const tune = this.channelParams[channelIdx].tune || 0;
+            source.playbackRate.value = Math.pow(2, tune / 12);
+            // For synth channels, also pitch by note difference from C3 (48)
+            if (CHANNELS[channelIdx].type === 'synth' && note) {
+                source.playbackRate.value *= Math.pow(2, (note - 48) / 12);
+            }
+            const gain = this.ctx.createGain();
+            gain.gain.value = velocity;
+            // Apply decay
+            const decayTime = (this.channelParams[channelIdx].decay || 50) / 100 * 2;
+            gain.gain.setValueAtTime(velocity, time);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + decayTime);
+            source.connect(gain);
+            gain.connect(this.channelGains[channelIdx]);
+            source.start(time);
+            source.stop(time + decayTime + 0.01);
+        }
+
+        // ---- Helper for glide ----
+        applyGlide(osc, freq, time, channelIdx) {
+            const params = this.channelParams[channelIdx];
+            const glide = params.glide || 0;
+            if (glide > 0 && this.lastNoteFreq[channelIdx]) {
+                const glideTime = (glide / 100) * 0.3;
+                osc.frequency.setValueAtTime(this.lastNoteFreq[channelIdx], time);
+                osc.frequency.exponentialRampToValueAtTime(freq, time + glideTime);
+            } else {
+                osc.frequency.value = freq;
+            }
+            this.lastNoteFreq[channelIdx] = freq;
         }
 
         // ---- Drum Voices ----
@@ -487,10 +651,10 @@
             const filter = this.ctx.createBiquadFilter();
 
             osc.type = params.waveform || 'sawtooth';
-            osc.frequency.value = freq;
+            this.applyGlide(osc, freq, time, channelIdx);
             osc.detune.value = -(params.detune || 5);
             osc2.type = params.waveform || 'sawtooth';
-            osc2.frequency.value = freq;
+            this.applyGlide(osc2, freq, time, channelIdx);
             osc2.detune.value = (params.detune || 5);
 
             filter.type = 'lowpass';
@@ -526,7 +690,7 @@
             const filter = this.ctx.createBiquadFilter();
 
             osc.type = params.waveform || 'sawtooth';
-            osc.frequency.value = freq;
+            this.applyGlide(osc, freq, time, channelIdx);
             osc.detune.value = params.detune || 5;
 
             filter.type = 'lowpass';
@@ -561,10 +725,10 @@
             const filter = this.ctx.createBiquadFilter();
 
             osc1.type = params.waveform || 'sawtooth';
-            osc1.frequency.value = freq;
+            this.applyGlide(osc1, freq, time, channelIdx);
             osc1.detune.value = -(params.detune || 5);
             osc2.type = params.waveform || 'sawtooth';
-            osc2.frequency.value = freq;
+            this.applyGlide(osc2, freq, time, channelIdx);
             osc2.detune.value = (params.detune || 5);
             osc3.type = 'sine';
             osc3.frequency.value = freq * 0.5;
@@ -591,6 +755,146 @@
             osc3.stop(time + attackTime + decayTime + 0.01);
         }
 
+        // ---- Phase 2: Chord Voice ----
+        playChord(time, note = 60, velocity = 0.8, channelIdx = 8, noteLength = 0.3) {
+            if (!this.ctx) return;
+            const params = this.channelParams[channelIdx];
+            const freq = midiToFreq(note);
+            const attackTime = (params.attack / 100) * 0.2;
+            const decayTime = Math.max(0.1 + (params.decay / 100) * 0.6, noteLength);
+            const cutoff = 300 + (params.cutoff / 100) * 6000;
+
+            // Determine intervals based on chord type
+            const chordType = params.chordType || 'minor';
+            let intervals;
+            switch (chordType) {
+                case 'major': intervals = [0, 4, 7]; break;
+                case 'minor': intervals = [0, 3, 7]; break;
+                case '7th': intervals = [0, 4, 7, 10]; break;
+                case 'min7': intervals = [0, 3, 7, 10]; break;
+                default: intervals = [0, 3, 7]; break;
+            }
+
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(cutoff * 2, time);
+            filter.frequency.exponentialRampToValueAtTime(cutoff, time + attackTime + decayTime * 0.4);
+            filter.Q.value = params.resonance || 4;
+
+            const gain = this.ctx.createGain();
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(velocity * 0.25 / intervals.length * 2, time + attackTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + attackTime + decayTime);
+
+            const oscs = [];
+            for (let i = 0; i < intervals.length; i++) {
+                const chordFreq = freq * Math.pow(2, intervals[i] / 12);
+                const osc = this.ctx.createOscillator();
+                osc.type = params.waveform || 'sawtooth';
+                if (i === 0) {
+                    this.applyGlide(osc, chordFreq, time, channelIdx);
+                } else {
+                    osc.frequency.value = chordFreq;
+                }
+                // Slight detune for warmth
+                osc.detune.value = (i % 2 === 0 ? 3 : -3) + (params.detune || 5) * (i === 0 ? -1 : 1);
+                osc.connect(filter);
+                osc.start(time);
+                osc.stop(time + attackTime + decayTime + 0.01);
+                oscs.push(osc);
+            }
+
+            filter.connect(gain);
+            gain.connect(this.channelGains[channelIdx]);
+        }
+
+        // ---- Phase 2: Stab Voice ----
+        playStab(time, note = 60, velocity = 0.8, channelIdx = 9, noteLength = 0.1) {
+            if (!this.ctx) return;
+            const params = this.channelParams[channelIdx];
+            const freq = midiToFreq(note);
+            // Very short decay for stab character
+            const decayTime = 0.05 + (params.decay / 100) * 0.1;
+            const cutoff = 500 + (params.cutoff / 100) * 8000;
+
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            const filter = this.ctx.createBiquadFilter();
+
+            osc.type = params.waveform || 'sawtooth';
+            this.applyGlide(osc, freq, time, channelIdx);
+            osc.detune.value = params.detune || 5;
+
+            filter.type = 'bandpass';
+            filter.frequency.value = cutoff;
+            filter.Q.value = Math.max(params.resonance || 8, 4); // High resonance for character
+
+            // Sharp attack (near zero)
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(velocity * 0.5, time + 0.003);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + decayTime);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.channelGains[channelIdx]);
+
+            osc.start(time);
+            osc.stop(time + decayTime + 0.01);
+        }
+
+        // ---- Phase 2: Organ Voice ----
+        playOrgan(time, note = 60, velocity = 0.8, channelIdx = 10, noteLength = 0.5) {
+            if (!this.ctx) return;
+            const params = this.channelParams[channelIdx];
+            const freq = midiToFreq(note);
+            const attackTime = 0.01 + (params.attack / 100) * 0.3;
+            const decayTime = Math.max(0.2 + (params.decay / 100) * 1.5, noteLength);
+            const brightness = (params.cutoff || 70) / 100; // 0-1 used as brightness
+
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 500 + brightness * 8000;
+            filter.Q.value = 0.5;
+
+            const gain = this.ctx.createGain();
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(velocity * 0.2, time + attackTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + attackTime + decayTime);
+
+            // Additive synthesis: 5 sine oscillators at harmonics 1x, 2x, 3x, 4x, 8x
+            const harmonics = [1, 2, 3, 4, 8];
+            // Higher brightness = more upper harmonics
+            const levels = harmonics.map((h, i) => {
+                if (i === 0) return 1.0;
+                return Math.max(0.05, brightness * (1 - i * 0.15));
+            });
+
+            const oscs = [];
+            for (let i = 0; i < harmonics.length; i++) {
+                const osc = this.ctx.createOscillator();
+                osc.type = 'sine';
+                const hFreq = freq * harmonics[i];
+                if (i === 0) {
+                    this.applyGlide(osc, hFreq, time, channelIdx);
+                } else {
+                    osc.frequency.value = hFreq;
+                }
+                // Slight detune for chorus effect
+                osc.detune.value = (params.detune || 3) * (i % 2 === 0 ? 1 : -1) * 0.5;
+
+                const oscGain = this.ctx.createGain();
+                oscGain.gain.value = levels[i];
+                osc.connect(oscGain);
+                oscGain.connect(filter);
+                osc.start(time);
+                osc.stop(time + attackTime + decayTime + 0.01);
+                oscs.push(osc);
+            }
+
+            filter.connect(gain);
+            gain.connect(this.channelGains[channelIdx]);
+        }
+
         // ---- Play any channel ----
         playChannel(channelIdx, time, velocity, note, isOpen, noteLength) {
             if (!this.ctx) return;
@@ -598,6 +902,12 @@
             const hasSolo = this.channelSolo.some(s => s);
             if (hasSolo && !this.channelSolo[channelIdx]) return;
             if (!hasSolo && this.channelMuted[channelIdx]) return;
+
+            // Check if sample is loaded for this channel - play sample instead
+            if (this.sampleManager.hasSample(channelIdx)) {
+                this.playSampleNote(channelIdx, time, velocity, note);
+                return;
+            }
 
             switch (channelIdx) {
                 case 0: this.playKick(time, velocity, channelIdx); break;
@@ -608,6 +918,9 @@
                 case 5: this.playBass(time, note || 36, velocity, channelIdx, noteLength); break;
                 case 6: this.playLead(time, note || 60, velocity, channelIdx, noteLength); break;
                 case 7: this.playPad(time, note || 60, velocity, channelIdx, noteLength); break;
+                case 8: this.playChord(time, note || 60, velocity, channelIdx, noteLength); break;
+                case 9: this.playStab(time, note || 60, velocity, channelIdx, noteLength); break;
+                case 10: this.playOrgan(time, note || 60, velocity, channelIdx, noteLength); break;
             }
         }
 
@@ -624,6 +937,9 @@
                 case 5: this.playBass(time, note, 0.7, 5); break;
                 case 6: this.playLead(time, note, 0.7, 6); break;
                 case 7: this.playPad(time, note, 0.7, 7); break;
+                case 8: this.playChord(time, note, 0.7, 8); break;
+                case 9: this.playStab(time, note, 0.7, 9); break;
+                case 10: this.playOrgan(time, note, 0.7, 10); break;
             }
         }
 
@@ -1085,6 +1401,47 @@
                 panContainer.appendChild(panLabel);
                 panContainer.appendChild(pan);
 
+                // EQ section
+                const eqSection = el('div', { className: 'mixer-eq-section' });
+                const eqBands = [
+                    { label: 'L', band: 'low' },
+                    { label: 'M', band: 'mid' },
+                    { label: 'H', band: 'high' }
+                ];
+                for (const eqDef of eqBands) {
+                    const eqGroup = el('div', { className: 'mixer-eq-group' });
+                    const eqLabel = el('label', { text: eqDef.label });
+                    const eqRange = el('input', {
+                        type: 'range', className: 'mixer-eq-range',
+                        min: '-12', max: '12', value: '0', step: '1'
+                    });
+                    eqRange.dataset.channel = i;
+                    eqRange.dataset.band = eqDef.band;
+                    eqGroup.appendChild(eqLabel);
+                    eqGroup.appendChild(eqRange);
+                    eqSection.appendChild(eqGroup);
+                }
+
+                // Send section
+                const sendSection = el('div', { className: 'mixer-send-section' });
+                const sends = [
+                    { label: 'REV', param: 'reverbSend', defaultVal: '20' },
+                    { label: 'DLY', param: 'delaySend', defaultVal: '0' }
+                ];
+                for (const sendDef of sends) {
+                    const sendGroup = el('div', { className: 'mixer-send-group' });
+                    const sendLabel = el('label', { text: sendDef.label });
+                    const sendRange = el('input', {
+                        type: 'range', className: 'mixer-send-range',
+                        min: '0', max: '100', value: sendDef.defaultVal, step: '1'
+                    });
+                    sendRange.dataset.channel = i;
+                    sendRange.dataset.sendParam = sendDef.param;
+                    sendGroup.appendChild(sendLabel);
+                    sendGroup.appendChild(sendRange);
+                    sendSection.appendChild(sendGroup);
+                }
+
                 const btnsDiv = el('div', { className: 'mixer-btns' });
                 const muteBtn = el('button', { className: 'mixer-mute', text: 'M' });
                 muteBtn.dataset.channel = i;
@@ -1099,6 +1456,8 @@
                 ch.appendChild(faderContainer);
                 ch.appendChild(db);
                 ch.appendChild(panContainer);
+                ch.appendChild(eqSection);
+                ch.appendChild(sendSection);
                 ch.appendChild(btnsDiv);
 
                 container.appendChild(ch);
@@ -1179,6 +1538,44 @@
             }
 
             this.updateSynthParams();
+            this.updateSampleSection();
+        }
+
+        updateSampleSection() {
+            const container = document.getElementById('synth-sample-section');
+            if (!container) return;
+            while (container.firstChild) container.removeChild(container.firstChild);
+
+            const ch = this.synthEditorChannel;
+            const sampleLabel = el('span', { className: 'sample-label', text: 'SAMPLE' });
+            container.appendChild(sampleLabel);
+
+            const hasSample = this.audio.sampleManager.hasSample(ch);
+            const sampleName = el('span', {
+                className: 'sample-name' + (hasSample ? ' loaded' : ''),
+                text: hasSample ? this.audio.sampleManager.getSample(ch).name : 'No sample loaded'
+            });
+            container.appendChild(sampleName);
+
+            const loadBtn = el('button', { className: 'tool-btn', text: 'LOAD' });
+            loadBtn.addEventListener('click', () => {
+                const fileInput = document.getElementById('sample-import');
+                if (fileInput) {
+                    fileInput.dataset.targetChannel = ch;
+                    fileInput.click();
+                }
+            });
+            container.appendChild(loadBtn);
+
+            if (hasSample) {
+                const clearBtn = el('button', { className: 'tool-btn', text: 'CLEAR' });
+                clearBtn.addEventListener('click', () => {
+                    this.audio.sampleManager.clearSample(ch);
+                    this.updateSampleSection();
+                    this.setStatus('Sample cleared from ' + CHANNELS[ch].name);
+                });
+                container.appendChild(clearBtn);
+            }
         }
 
         updateSynthParams() {
@@ -1196,7 +1593,7 @@
                 container.appendChild(this.createParamSlider('TONE', 'tone', params.tone, 0, 100, 1, v => v + '%'));
                 container.appendChild(this.createParamSlider('DRIVE', 'drive', params.drive, 0, 100, 1, v => v + '%'));
             } else {
-                // Synth params: waveform, attack, decay, cutoff, resonance, detune
+                // Synth params: waveform, attack, decay, cutoff, resonance, detune, glide
                 const waveGroup = el('div', { className: 'synth-param-group' });
                 const waveLabel = el('label', { text: 'WAVEFORM' });
                 const waveSelect = el('select', { className: 'synth-select' });
@@ -1215,6 +1612,23 @@
                 container.appendChild(this.createParamSlider('CUTOFF', 'cutoff', params.cutoff, 0, 100, 1, v => v + '%'));
                 container.appendChild(this.createParamSlider('RESONANCE', 'resonance', params.resonance, 0, 30, 0.5, v => v.toFixed(1)));
                 container.appendChild(this.createParamSlider('DETUNE', 'detune', params.detune, 0, 50, 1, v => v + 'ct'));
+                container.appendChild(this.createParamSlider('GLIDE', 'glide', params.glide || 0, 0, 100, 1, v => v + '%'));
+
+                // Chord channel gets extra chord type dropdown
+                if (ch === 8) {
+                    const chordGroup = el('div', { className: 'synth-param-group' });
+                    const chordLabel = el('label', { text: 'CHORD TYPE' });
+                    const chordSelect = el('select', { className: 'synth-select' });
+                    chordSelect.dataset.param = 'chordType';
+                    ['major', 'minor', '7th', 'min7'].forEach(ct => {
+                        const opt = el('option', { value: ct, text: ct.toUpperCase() });
+                        if (params.chordType === ct) opt.selected = true;
+                        chordSelect.appendChild(opt);
+                    });
+                    chordGroup.appendChild(chordLabel);
+                    chordGroup.appendChild(chordSelect);
+                    container.appendChild(chordGroup);
+                }
             }
         }
 
@@ -1361,6 +1775,9 @@
             document.getElementById('btn-json-export').addEventListener('click', () => this.exportJSON());
             document.getElementById('json-import').addEventListener('change', (e) => this.importJSON(e));
 
+            // Sample import
+            document.getElementById('sample-import').addEventListener('change', (e) => this.handleSampleImport(e));
+
             // WAV export
             const btnExport = document.getElementById('btn-export');
             if (btnExport) {
@@ -1465,6 +1882,24 @@
                         this.audio.channelPans[ch].pan.value = val;
                     }
                 }
+                // EQ ranges
+                if (e.target.classList.contains('mixer-eq-range')) {
+                    const ch = parseInt(e.target.dataset.channel);
+                    const band = e.target.dataset.band;
+                    const dB = parseFloat(e.target.value);
+                    this.audio.setChannelEq(ch, band, dB);
+                }
+                // Send ranges
+                if (e.target.classList.contains('mixer-send-range')) {
+                    const ch = parseInt(e.target.dataset.channel);
+                    const sendParam = e.target.dataset.sendParam;
+                    const val = parseInt(e.target.value);
+                    if (sendParam === 'reverbSend') {
+                        this.audio.setChannelReverbSend(ch, val);
+                    } else if (sendParam === 'delaySend') {
+                        this.audio.setChannelDelaySend(ch, val);
+                    }
+                }
             });
             mixerContainer.addEventListener('click', (e) => {
                 if (e.target.classList.contains('mixer-mute')) {
@@ -1511,6 +1946,7 @@
                         b.style.borderColor = (i === this.synthEditorChannel) ? CHANNELS[i].color : '';
                     });
                     this.updateSynthParams();
+                    this.updateSampleSection();
                 });
             }
 
@@ -1669,6 +2105,24 @@
             // Keyboard events
             document.addEventListener('keydown', (e) => this.handleKeyDown(e));
             document.addEventListener('keyup', (e) => this.handleKeyUp(e));
+        }
+
+        // ---- Sample Import Handler ----
+        async handleSampleImport(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const ch = parseInt(e.target.dataset.targetChannel || this.synthEditorChannel);
+
+            try {
+                await this.audio.init();
+                await this.audio.sampleManager.loadSample(this.audio.ctx, ch, file);
+                this.updateSampleSection();
+                this.setStatus('Sample loaded: ' + file.name + ' -> ' + CHANNELS[ch].name);
+            } catch (err) {
+                this.setStatus('Sample load failed: ' + err.message);
+            }
+            // Reset so same file can be loaded again
+            e.target.value = '';
         }
 
         bindEffect(id, setter, formatter) {
@@ -1957,8 +2411,9 @@
             }
 
             for (let ch = 0; ch < CHANNELS.length; ch++) {
+                if (ch >= channels.length) break; // Safety for backward compat
                 const stepData = channels[ch][step];
-                if (stepData.on) {
+                if (stepData && stepData.on) {
                     const isOpen = (ch === 2) ? stepData.open : false;
                     const noteLength = (stepData.duration || 1) * stepDurationSec;
                     this.audio.playChannel(ch, time, stepData.velocity, stepData.note, isOpen, noteLength);
@@ -2172,6 +2627,7 @@
             // Draw notes with duration
             const channels = this.state.getCurrentPatternChannels();
             const ch = this.pianoRollChannel;
+            if (ch >= channels.length) return; // Safety
             const baseNote = (this.pianoRollOctave + 1) * 12;
             const color = CHANNELS[ch].color;
 
@@ -2733,7 +3189,7 @@
                         // Check if already in v3 format (has stepsCount property)
                         if (oldPat && oldPat.stepsCount !== undefined) {
                             // Already v3 format, just ensure duration and automation exist
-                            for (let ch = 0; ch < CHANNELS.length; ch++) {
+                            for (let ch = 0; ch < oldPat.channels.length; ch++) {
                                 if (oldPat.channels && oldPat.channels[ch]) {
                                     for (let s = 0; s < oldPat.channels[ch].length; s++) {
                                         if (oldPat.channels[ch][s].duration === undefined) {
@@ -2768,7 +3224,7 @@
                     this.state.patterns.push(this.state.createEmptyPattern(DEFAULT_STEPS));
                 }
 
-                // Ensure all patterns have the new structure
+                // Ensure all patterns have the new structure and extend channels to 11
                 for (let p = 0; p < this.state.patterns.length; p++) {
                     const pat = this.state.patterns[p];
                     if (!pat.automation) pat.automation = {};
@@ -2784,6 +3240,22 @@
                             pat.channels.push(channel);
                         }
                     }
+
+                    // Extend from 8 channels to 11 if needed (backward compat)
+                    while (pat.channels.length < CHANNELS.length) {
+                        const chIdx = pat.channels.length;
+                        const channel = [];
+                        for (let s = 0; s < pat.stepsCount; s++) {
+                            channel.push({
+                                on: false,
+                                velocity: 0.8,
+                                note: CHANNELS[chIdx].type === 'synth' ? 48 : 0,
+                                open: false,
+                                duration: 1
+                            });
+                        }
+                        pat.channels.push(channel);
+                    }
                 }
             }
             if (typeof data.currentPattern === 'number') {
@@ -2795,6 +3267,41 @@
             }
             if (data.channelParams) {
                 this.audio.channelParams = data.channelParams;
+                // Extend channelParams if saved with fewer channels
+                while (this.audio.channelParams.length < CHANNELS.length) {
+                    const i = this.audio.channelParams.length;
+                    if (CHANNELS[i].type === 'drum') {
+                        this.audio.channelParams.push({
+                            tune: 0, decay: 50, tone: 50, drive: 0,
+                            eqLow: 0, eqMid: 0, eqHigh: 0,
+                            reverbSend: 20, delaySend: 0
+                        });
+                    } else {
+                        const base = {
+                            waveform: 'sawtooth', attack: 10, decay: 50,
+                            cutoff: 70, resonance: 5, detune: 5, glide: 0,
+                            eqLow: 0, eqMid: 0, eqHigh: 0,
+                            reverbSend: 20, delaySend: 0
+                        };
+                        if (i === 8) base.chordType = 'minor';
+                        this.audio.channelParams.push(base);
+                    }
+                }
+                // Ensure existing params have new Phase 2 defaults
+                for (let i = 0; i < this.audio.channelParams.length; i++) {
+                    const p = this.audio.channelParams[i];
+                    if (p.eqLow === undefined) p.eqLow = 0;
+                    if (p.eqMid === undefined) p.eqMid = 0;
+                    if (p.eqHigh === undefined) p.eqHigh = 0;
+                    if (p.reverbSend === undefined) p.reverbSend = 20;
+                    if (p.delaySend === undefined) p.delaySend = 0;
+                    if (CHANNELS[i] && CHANNELS[i].type === 'synth') {
+                        if (p.glide === undefined) p.glide = 0;
+                    }
+                    if (i === 8 && p.chordType === undefined) {
+                        p.chordType = 'minor';
+                    }
+                }
             }
             if (typeof data.sidechainAmount === 'number') {
                 this.audio.sidechainAmount = data.sidechainAmount;
@@ -2825,6 +3332,7 @@
             this.drawAutomation();
             this.updateSongChainDisplay();
             this.updateSynthParams();
+            this.updateSampleSection();
         }
 
         autoSave() {
