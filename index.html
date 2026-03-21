@@ -141,6 +141,9 @@
                         <option value="5">Bass</option>
                         <option value="6">Lead</option>
                         <option value="7">Pad</option>
+                        <option value="8">Chord</option>
+                        <option value="9">Stab</option>
+                        <option value="10">Organ</option>
                     </select>
                     <div class="pianoroll-divider"></div>
                     <label>Octave:</label>
@@ -170,6 +173,7 @@
                         <label>CHANNEL</label>
                         <div class="synth-channel-btns" id="synth-channel-btns"></div>
                     </div>
+                    <div class="synth-sample-section" id="synth-sample-section"></div>
                     <div class="synth-params" id="synth-params"></div>
                     <div class="sidechain-section">
                         <h4>SIDECHAIN (Ducking by Kick)</h4>
@@ -214,6 +218,12 @@
                                 <option value="channel-6-cutoff">Lead Cutoff</option>
                                 <option value="channel-7-volume">Pad Volume</option>
                                 <option value="channel-7-cutoff">Pad Cutoff</option>
+                                <option value="channel-8-volume">Chord Volume</option>
+                                <option value="channel-8-cutoff">Chord Cutoff</option>
+                                <option value="channel-9-volume">Stab Volume</option>
+                                <option value="channel-9-cutoff">Stab Cutoff</option>
+                                <option value="channel-10-volume">Organ Volume</option>
+                                <option value="channel-10-cutoff">Organ Cutoff</option>
                             </optgroup>
                         </select>
                         <div class="pianoroll-divider"></div>
@@ -306,6 +316,8 @@
 
     <!-- Hidden file input for JSON import -->
     <input type="file" id="json-import" accept=".json,.funkybeats" style="display:none">
+    <!-- Hidden file input for sample import -->
+    <input type="file" id="sample-import" accept="audio/*" style="display:none">
 
     <script src="app.js"></script>
 </body>

@@ -1,5 +1,6 @@
 /* ============================================
    FUNKYBEATS - FL Studio Clone Theme
+   Phase 2: 3 new synths, EQ, sends, samples, glide
    ============================================ */
 
 :root {
@@ -30,6 +31,9 @@
     --channel-bass: #00ff87;
     --channel-lead: #ff6bb5;
     --channel-pad: #64ffda;
+    --channel-chord: #ff9ff3;
+    --channel-stab: #f368e0;
+    --channel-organ: #c8d6e5;
     --playhead: #00ff87;
     --radius: 4px;
     --transition: 0.15s ease;
@@ -804,6 +808,106 @@ body {
     border-color: var(--accent-yellow);
 }
 
+/* ---- Mixer EQ Knobs ---- */
+.mixer-eq-section {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    margin-top: 4px;
+}
+
+.mixer-eq-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.mixer-eq-group label {
+    font-size: 7px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.3px;
+}
+
+.mixer-eq-range {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 40px;
+    height: 3px;
+    background: var(--bg-input);
+    border-radius: 2px;
+    outline: none;
+}
+
+.mixer-eq-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 8px;
+    height: 8px;
+    background: var(--accent-blue);
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.mixer-eq-range::-moz-range-thumb {
+    width: 8px;
+    height: 8px;
+    background: var(--accent-blue);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+}
+
+/* ---- Mixer Send Knobs ---- */
+.mixer-send-section {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    margin-top: 4px;
+}
+
+.mixer-send-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.mixer-send-group label {
+    font-size: 7px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.3px;
+}
+
+.mixer-send-range {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 40px;
+    height: 3px;
+    background: var(--bg-input);
+    border-radius: 2px;
+    outline: none;
+}
+
+.mixer-send-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 8px;
+    height: 8px;
+    background: var(--accent-purple);
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.mixer-send-range::-moz-range-thumb {
+    width: 8px;
+    height: 8px;
+    background: var(--accent-purple);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+}
+
 /* ---- Effects Rack ---- */
 #effects-rack {
     padding: 10px 16px;
@@ -1107,6 +1211,40 @@ input[type="range"]:hover::-webkit-slider-thumb {
     border-color: var(--accent-orange);
     color: var(--text-primary);
     background: var(--bg-elevated);
+}
+
+/* ---- Sample Section in Synth Editor ---- */
+.synth-sample-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: var(--bg-surface);
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    margin-bottom: 12px;
+    min-height: 44px;
+}
+
+.synth-sample-section .sample-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--text-secondary);
+    min-width: 50px;
+}
+
+.synth-sample-section .sample-name {
+    font-size: 11px;
+    color: var(--text-muted);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.synth-sample-section .sample-name.loaded {
+    color: var(--accent-green);
 }
 
 .synth-params {
