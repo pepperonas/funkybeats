@@ -3,6 +3,8 @@
    Phase 2: 3 new synths, EQ, sends, samples, glide
    Phase 3: Arrangement, Drag-to-Paint, Piano Roll
             Copy/Paste, Humanize, Help Modal
+   Phase 4: Chorus/Phaser/Flanger/Bitcrusher,
+            Bus Routing, Sidechain Source Selection
    ============================================ */
 
 :root {
@@ -683,6 +685,14 @@ body {
 .mixer-channel.master {
     border-color: var(--accent-orange);
     min-width: 100px;
+}
+
+/* Phase 4: Bus channel strips */
+.mixer-channel.bus-channel {
+    min-width: 90px;
+    background: linear-gradient(180deg, var(--bg-surface) 0%, #161630 100%);
+    border-width: 2px;
+    border-style: solid;
 }
 
 .mixer-channel-name {

@@ -179,8 +179,24 @@
                     <div class="synth-sample-section" id="synth-sample-section"></div>
                     <div class="synth-params" id="synth-params"></div>
                     <div class="sidechain-section">
-                        <h4>SIDECHAIN (Ducking by Kick)</h4>
+                        <h4>SIDECHAIN DUCKING</h4>
                         <div class="sidechain-controls">
+                            <div class="synth-param-group">
+                                <label>SOURCE</label>
+                                <select id="sc-source" class="synth-select">
+                                    <option value="0" selected>Kick</option>
+                                    <option value="1">Snare</option>
+                                    <option value="2">HiHat</option>
+                                    <option value="3">Clap</option>
+                                    <option value="4">Perc</option>
+                                    <option value="5">Bass</option>
+                                    <option value="6">Lead</option>
+                                    <option value="7">Pad</option>
+                                    <option value="8">Chord</option>
+                                    <option value="9">Stab</option>
+                                    <option value="10">Organ</option>
+                                </select>
+                            </div>
                             <div class="synth-param-group">
                                 <label>AMOUNT</label>
                                 <input type="range" id="sc-amount" min="0" max="100" value="0" class="synth-range">
@@ -318,6 +334,26 @@
                     <span class="effect-label">MASTER VOL</span>
                     <input type="range" id="fx-master" min="0" max="100" value="80" class="fx-range">
                     <span class="fx-val" id="fx-master-val">80%</span>
+                </div>
+                <div class="effect-unit">
+                    <span class="effect-label">CHORUS</span>
+                    <input type="range" id="fx-chorus" min="0" max="100" value="0" class="fx-range">
+                    <span class="fx-val" id="fx-chorus-val">0%</span>
+                </div>
+                <div class="effect-unit">
+                    <span class="effect-label">PHASER</span>
+                    <input type="range" id="fx-phaser" min="0" max="100" value="0" class="fx-range">
+                    <span class="fx-val" id="fx-phaser-val">0%</span>
+                </div>
+                <div class="effect-unit">
+                    <span class="effect-label">FLANGER</span>
+                    <input type="range" id="fx-flanger" min="0" max="100" value="0" class="fx-range">
+                    <span class="fx-val" id="fx-flanger-val">0%</span>
+                </div>
+                <div class="effect-unit">
+                    <span class="effect-label">BITCRUSHER</span>
+                    <input type="range" id="fx-bitcrusher" min="0" max="100" value="0" class="fx-range">
+                    <span class="fx-val" id="fx-bitcrusher-val">0%</span>
                 </div>
             </div>
         </section>

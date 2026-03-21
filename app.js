@@ -1,12 +1,14 @@
 // ============================================
 // FUNKYBEATS - Complete Electronic Music Producer
 // Web Audio API Synthesized DAW Clone
-// v3.0 - Phase 1: Variable Length, Note Duration,
+// v4.0 - Phase 1: Variable Length, Note Duration,
 //        Velocity Lane, Automation, Metronome
 // Phase 2: Chord/Stab/Organ, Per-Channel EQ & Sends,
 //          Sample Playback, Note Glide
 // Phase 3: Arrangement View, Drag-to-Paint,
 //          Piano Roll Copy/Paste, Humanize, Help Modal
+// Phase 4: Chorus/Phaser/Flanger/Bitcrusher,
+//          Bus Routing, Sidechain Source Selection
 // ============================================
 
 (() => {
@@ -118,7 +120,54 @@
             // Sidechain
             this.sidechainAmount = 0;
             this.sidechainRelease = 200;
+            this.sidechainSource = 0; // Phase 4: sidechain source channel index
             this.sidechainGains = []; // per non-kick channel
+
+            // Phase 4: Bus routing
+            this.drumBusGain = null;
+            this.synthBusGain = null;
+            this.drumBusCompressor = null;
+            this.synthBusCompressor = null;
+
+            // Phase 4: New effects
+            this.chorusAmount = 0;
+            this.phaserAmount = 0;
+            this.flangerAmount = 0;
+            this.bitcrusherAmount = 0;
+            // Chorus nodes
+            this.chorusInputGain = null;
+            this.chorusDryGain = null;
+            this.chorusWetGain = null;
+            this.chorusDelay1 = null;
+            this.chorusDelay2 = null;
+            this.chorusLfo1 = null;
+            this.chorusLfo2 = null;
+            this.chorusLfoGain1 = null;
+            this.chorusLfoGain2 = null;
+            this.chorusOutputGain = null;
+            // Phaser nodes
+            this.phaserInputGain = null;
+            this.phaserDryGain = null;
+            this.phaserWetGain = null;
+            this.phaserAllpass = [];
+            this.phaserOutputGain = null;
+            this.phaserLfoInterval = null;
+            this.phaserLfoPhase = 0;
+            // Flanger nodes
+            this.flangerInputGain = null;
+            this.flangerDryGain = null;
+            this.flangerWetGain = null;
+            this.flangerDelay = null;
+            this.flangerFeedback = null;
+            this.flangerOutputGain = null;
+            this.flangerLfoInterval = null;
+            this.flangerLfoPhase = 0;
+            // Bitcrusher
+            this.bitcrusherNode = null;
+            this.bitcrusherInputGain = null;
+            this.bitcrusherDryGain = null;
+            this.bitcrusherWetGain = null;
+            this.bitcrusherOutputGain = null;
 
             // Per-channel EQ
             this.channelEqLow = [];
@@ -219,6 +268,31 @@
             this.metronomeGain.gain.value = 0.5;
             this.metronomeGain.connect(this.ctx.destination);
 
+            // Phase 4: Bus gains and compressors
+            this.drumBusGain = this.ctx.createGain();
+            this.drumBusGain.gain.value = 1.0;
+            this.synthBusGain = this.ctx.createGain();
+            this.synthBusGain.gain.value = 1.0;
+            this.drumBusCompressor = this.ctx.createDynamicsCompressor();
+            this.drumBusCompressor.threshold.value = -18;
+            this.drumBusCompressor.knee.value = 20;
+            this.drumBusCompressor.ratio.value = 4;
+            this.drumBusCompressor.attack.value = 0.003;
+            this.drumBusCompressor.release.value = 0.15;
+            this.synthBusCompressor = this.ctx.createDynamicsCompressor();
+            this.synthBusCompressor.threshold.value = -18;
+            this.synthBusCompressor.knee.value = 20;
+            this.synthBusCompressor.ratio.value = 3;
+            this.synthBusCompressor.attack.value = 0.005;
+            this.synthBusCompressor.release.value = 0.25;
+
+            // Bus routing: drumBusGain -> drumBusCompressor -> filterNode
+            this.drumBusGain.connect(this.drumBusCompressor);
+            this.drumBusCompressor.connect(this.filterNode);
+            // Bus routing: synthBusGain -> synthBusCompressor -> filterNode
+            this.synthBusGain.connect(this.synthBusCompressor);
+            this.synthBusCompressor.connect(this.filterNode);
+
             // Channel gains, pans, EQ, and sends
             for (let i = 0; i < CHANNELS.length; i++) {
                 const gain = this.ctx.createGain();
@@ -263,13 +337,18 @@
                 this.channelReverbSends.push(reverbSend);
                 this.channelDelaySends.push(delaySend);
 
-                // Routing: channelGain -> eqLow -> eqMid -> eqHigh -> pan -> sidechainGain -> filter (dry)
+                // Routing: channelGain -> eqLow -> eqMid -> eqHigh -> pan -> sidechainGain -> bus
                 gain.connect(eqLow);
                 eqLow.connect(eqMid);
                 eqMid.connect(eqHigh);
                 eqHigh.connect(pan);
                 pan.connect(scGain);
-                scGain.connect(this.filterNode);
+                // Phase 4: Route to appropriate bus instead of directly to filter
+                if (i <= 4) {
+                    scGain.connect(this.drumBusGain);
+                } else {
+                    scGain.connect(this.synthBusGain);
+                }
 
                 // Send routing: after eqHigh, also connect to reverb/delay sends
                 eqHigh.connect(reverbSend);
@@ -278,8 +357,151 @@
                 delaySend.connect(this.delayNode);
             }
 
-            // Signal chain: filter -> distortion -> compressor -> masterGain -> analyser -> destination
-            this.filterNode.connect(this.distortionNode);
+            // Phase 4: Create new effect nodes
+            // Chorus: 2 delay lines with slight offsets, detuned by LFO
+            this.chorusInputGain = this.ctx.createGain();
+            this.chorusInputGain.gain.value = 1;
+            this.chorusDryGain = this.ctx.createGain();
+            this.chorusDryGain.gain.value = 1;
+            this.chorusWetGain = this.ctx.createGain();
+            this.chorusWetGain.gain.value = 0;
+            this.chorusOutputGain = this.ctx.createGain();
+            this.chorusOutputGain.gain.value = 1;
+            this.chorusDelay1 = this.ctx.createDelay(0.1);
+            this.chorusDelay1.delayTime.value = 0.007;
+            this.chorusDelay2 = this.ctx.createDelay(0.1);
+            this.chorusDelay2.delayTime.value = 0.011;
+            this.chorusLfo1 = this.ctx.createOscillator();
+            this.chorusLfo1.type = 'sine';
+            this.chorusLfo1.frequency.value = 0.8;
+            this.chorusLfoGain1 = this.ctx.createGain();
+            this.chorusLfoGain1.gain.value = 0.002;
+            this.chorusLfo2 = this.ctx.createOscillator();
+            this.chorusLfo2.type = 'sine';
+            this.chorusLfo2.frequency.value = 1.2;
+            this.chorusLfoGain2 = this.ctx.createGain();
+            this.chorusLfoGain2.gain.value = 0.002;
+            this.chorusLfo1.connect(this.chorusLfoGain1);
+            this.chorusLfoGain1.connect(this.chorusDelay1.delayTime);
+            this.chorusLfo2.connect(this.chorusLfoGain2);
+            this.chorusLfoGain2.connect(this.chorusDelay2.delayTime);
+            this.chorusLfo1.start();
+            this.chorusLfo2.start();
+            // Chorus routing: input -> dry -> output, input -> delay1 + delay2 -> wet -> output
+            this.chorusInputGain.connect(this.chorusDryGain);
+            this.chorusDryGain.connect(this.chorusOutputGain);
+            this.chorusInputGain.connect(this.chorusDelay1);
+            this.chorusInputGain.connect(this.chorusDelay2);
+            this.chorusDelay1.connect(this.chorusWetGain);
+            this.chorusDelay2.connect(this.chorusWetGain);
+            this.chorusWetGain.connect(this.chorusOutputGain);
+
+            // Phaser: 4 allpass filters with LFO sweeping frequency
+            this.phaserInputGain = this.ctx.createGain();
+            this.phaserInputGain.gain.value = 1;
+            this.phaserDryGain = this.ctx.createGain();
+            this.phaserDryGain.gain.value = 1;
+            this.phaserWetGain = this.ctx.createGain();
+            this.phaserWetGain.gain.value = 0;
+            this.phaserOutputGain = this.ctx.createGain();
+            this.phaserOutputGain.gain.value = 1;
+            this.phaserAllpass = [];
+            let prevNode = this.phaserInputGain;
+            for (let i = 0; i < 4; i++) {
+                const ap = this.ctx.createBiquadFilter();
+                ap.type = 'allpass';
+                ap.frequency.value = 1000;
+                ap.Q.value = 0.5;
+                this.phaserAllpass.push(ap);
+            }
+            // Chain allpass: input -> ap0 -> ap1 -> ap2 -> ap3 -> wetGain
+            this.phaserAllpass[0].connect(this.phaserAllpass[1]);
+            this.phaserAllpass[1].connect(this.phaserAllpass[2]);
+            this.phaserAllpass[2].connect(this.phaserAllpass[3]);
+            this.phaserInputGain.connect(this.phaserAllpass[0]);
+            this.phaserAllpass[3].connect(this.phaserWetGain);
+            this.phaserInputGain.connect(this.phaserDryGain);
+            this.phaserDryGain.connect(this.phaserOutputGain);
+            this.phaserWetGain.connect(this.phaserOutputGain);
+            // LFO via setInterval
+            this.phaserLfoPhase = 0;
+            this.phaserLfoInterval = setInterval(() => {
+                if (this.phaserAmount <= 0) return;
+                this.phaserLfoPhase += 0.05;
+                const freq = 600 + 2400 * (0.5 + 0.5 * Math.sin(this.phaserLfoPhase));
+                for (const ap of this.phaserAllpass) {
+                    ap.frequency.value = freq;
+                }
+            }, 30);
+
+            // Flanger: short delay with feedback, LFO on delay time
+            this.flangerInputGain = this.ctx.createGain();
+            this.flangerInputGain.gain.value = 1;
+            this.flangerDryGain = this.ctx.createGain();
+            this.flangerDryGain.gain.value = 1;
+            this.flangerWetGain = this.ctx.createGain();
+            this.flangerWetGain.gain.value = 0;
+            this.flangerOutputGain = this.ctx.createGain();
+            this.flangerOutputGain.gain.value = 1;
+            this.flangerDelay = this.ctx.createDelay(0.02);
+            this.flangerDelay.delayTime.value = 0.003;
+            this.flangerFeedback = this.ctx.createGain();
+            this.flangerFeedback.gain.value = 0.5;
+            // Flanger routing
+            this.flangerInputGain.connect(this.flangerDryGain);
+            this.flangerDryGain.connect(this.flangerOutputGain);
+            this.flangerInputGain.connect(this.flangerDelay);
+            this.flangerDelay.connect(this.flangerFeedback);
+            this.flangerFeedback.connect(this.flangerDelay);
+            this.flangerDelay.connect(this.flangerWetGain);
+            this.flangerWetGain.connect(this.flangerOutputGain);
+            // LFO via setInterval
+            this.flangerLfoPhase = 0;
+            this.flangerLfoInterval = setInterval(() => {
+                if (this.flangerAmount <= 0) return;
+                this.flangerLfoPhase += 0.04;
+                const delay = 0.001 + 0.004 * (0.5 + 0.5 * Math.sin(this.flangerLfoPhase));
+                this.flangerDelay.delayTime.value = delay;
+            }, 30);
+
+            // Bitcrusher: ScriptProcessorNode
+            this.bitcrusherNode = this.ctx.createScriptProcessor(4096, 1, 1);
+            this.bitcrusherInputGain = this.ctx.createGain();
+            this.bitcrusherInputGain.gain.value = 1;
+            this.bitcrusherDryGain = this.ctx.createGain();
+            this.bitcrusherDryGain.gain.value = 1;
+            this.bitcrusherWetGain = this.ctx.createGain();
+            this.bitcrusherWetGain.gain.value = 0;
+            this.bitcrusherOutputGain = this.ctx.createGain();
+            this.bitcrusherOutputGain.gain.value = 1;
+            const self = this;
+            this.bitcrusherNode.onaudioprocess = function(e) {
+                const input = e.inputBuffer.getChannelData(0);
+                const output = e.outputBuffer.getChannelData(0);
+                const amount = self.bitcrusherAmount;
+                if (amount <= 0) {
+                    for (let i = 0; i < input.length; i++) output[i] = input[i];
+                    return;
+                }
+                const bits = Math.round(1 + (1 - amount) * 15);
+                const step = Math.pow(0.5, bits);
+                for (let i = 0; i < input.length; i++) {
+                    output[i] = step * Math.floor(input[i] / step + 0.5);
+                }
+            };
+            // Bitcrusher routing
+            this.bitcrusherInputGain.connect(this.bitcrusherDryGain);
+            this.bitcrusherDryGain.connect(this.bitcrusherOutputGain);
+            this.bitcrusherInputGain.connect(this.bitcrusherNode);
+            this.bitcrusherNode.connect(this.bitcrusherWetGain);
+            this.bitcrusherWetGain.connect(this.bitcrusherOutputGain);
+
+            // Signal chain: filter -> chorus -> phaser -> flanger -> bitcrusher -> distortion -> compressor -> masterGain -> analyser -> destination
+            this.filterNode.connect(this.chorusInputGain);
+            this.chorusOutputGain.connect(this.phaserInputGain);
+            this.phaserOutputGain.connect(this.flangerInputGain);
+            this.flangerOutputGain.connect(this.bitcrusherInputGain);
+            this.bitcrusherOutputGain.connect(this.distortionNode);
             this.distortionNode.connect(this.compressor);
             this.compressor.connect(this.masterGain);
             this.masterGain.connect(this.analyser);
@@ -352,10 +574,11 @@
             this.channelParams[ch].delaySend = val;
         }
 
-        // Sidechain: duck non-kick channels when kick fires
+        // Sidechain: duck non-source channels when source fires
         triggerSidechain(time) {
             if (this.sidechainAmount <= 0) return;
-            for (let i = 1; i < CHANNELS.length; i++) {
+            for (let i = 0; i < CHANNELS.length; i++) {
+                if (i === this.sidechainSource) continue; // Don't duck the source itself
                 const scGain = this.sidechainGains[i];
                 scGain.gain.cancelScheduledValues(time);
                 scGain.gain.setValueAtTime(1 - this.sidechainAmount, time);
@@ -473,9 +696,6 @@
             subGain.connect(this.channelGains[channelIdx]);
             subOsc.start(time);
             subOsc.stop(time + decayScale + 0.01);
-
-            // Trigger sidechain
-            this.triggerSidechain(time);
         }
 
         playSnare(time, velocity = 0.8, channelIdx = 1) {
@@ -905,6 +1125,11 @@
             if (hasSolo && !this.channelSolo[channelIdx]) return;
             if (!hasSolo && this.channelMuted[channelIdx]) return;
 
+            // Phase 4: Trigger sidechain from configured source
+            if (channelIdx === this.sidechainSource) {
+                this.triggerSidechain(time);
+            }
+
             // Check if sample is loaded for this channel - play sample instead
             if (this.sampleManager.hasSample(channelIdx)) {
                 this.playSampleNote(channelIdx, time, velocity, note);
@@ -994,6 +1219,74 @@
             const data = new Uint8Array(this.analyser.frequencyBinCount);
             this.analyser.getByteTimeDomainData(data);
             return data;
+        }
+
+        // Phase 4: Chorus amount (0-1)
+        setChorus(amount) {
+            this.chorusAmount = amount;
+            if (this.chorusWetGain) {
+                this.chorusWetGain.gain.value = amount * 0.5;
+                this.chorusDryGain.gain.value = 1 - amount * 0.3;
+            }
+            // Vary LFO depth with amount
+            if (this.chorusLfoGain1) {
+                this.chorusLfoGain1.gain.value = 0.001 + amount * 0.003;
+                this.chorusLfoGain2.gain.value = 0.001 + amount * 0.003;
+            }
+        }
+
+        // Phase 4: Phaser amount (0-1)
+        setPhaser(amount) {
+            this.phaserAmount = amount;
+            if (this.phaserWetGain) {
+                this.phaserWetGain.gain.value = amount * 0.7;
+                this.phaserDryGain.gain.value = 1 - amount * 0.3;
+            }
+        }
+
+        // Phase 4: Flanger amount (0-1)
+        setFlanger(amount) {
+            this.flangerAmount = amount;
+            if (this.flangerWetGain) {
+                this.flangerWetGain.gain.value = amount * 0.6;
+                this.flangerDryGain.gain.value = 1 - amount * 0.3;
+            }
+            if (this.flangerFeedback) {
+                this.flangerFeedback.gain.value = 0.3 + amount * 0.4;
+            }
+        }
+
+        // Phase 4: Bitcrusher amount (0-1)
+        setBitcrusher(amount) {
+            this.bitcrusherAmount = amount;
+            if (this.bitcrusherWetGain) {
+                this.bitcrusherWetGain.gain.value = amount > 0.01 ? 1 : 0;
+                this.bitcrusherDryGain.gain.value = amount > 0.01 ? 0 : 1;
+            }
+        }
+
+        // Phase 4: Bus volume setters
+        setDrumBusVolume(val) {
+            if (this.drumBusGain) this.drumBusGain.gain.value = val;
+        }
+
+        setSynthBusVolume(val) {
+            if (this.synthBusGain) this.synthBusGain.gain.value = val;
+        }
+
+        // Phase 4: Bus compressor setters (amount 0-1)
+        setDrumBusCompressor(amount) {
+            if (this.drumBusCompressor) {
+                this.drumBusCompressor.threshold.value = -12 - amount * 24;
+                this.drumBusCompressor.ratio.value = 2 + amount * 10;
+            }
+        }
+
+        setSynthBusCompressor(amount) {
+            if (this.synthBusCompressor) {
+                this.synthBusCompressor.threshold.value = -12 - amount * 24;
+                this.synthBusCompressor.ratio.value = 2 + amount * 10;
+            }
         }
     }
 
@@ -1500,6 +1793,56 @@
                 ch.appendChild(btnsDiv);
 
                 container.appendChild(ch);
+            }
+
+            // Phase 4: Bus channel strips (DRUMS and SYNTHS)
+            const busConfigs = [
+                { name: 'DRUMS', busType: 'drums', color: '#ff6b35' },
+                { name: 'SYNTHS', busType: 'synths', color: '#00ff87' }
+            ];
+            for (const busCfg of busConfigs) {
+                const busCh = el('div', { className: 'mixer-channel bus-channel' });
+                busCh.style.borderColor = busCfg.color;
+
+                const busColorDot = el('div', { className: 'mixer-color-dot' });
+                busColorDot.style.backgroundColor = busCfg.color;
+
+                const busName = el('div', { className: 'mixer-channel-name', text: busCfg.name });
+                busName.style.color = busCfg.color;
+
+                const busVuContainer = el('div', { className: 'mixer-vu' });
+                const busVuFill = el('div', { className: 'mixer-vu-fill' });
+                busVuFill.style.height = '0%';
+                busVuContainer.appendChild(busVuFill);
+                this.mixerVUs.push(busVuFill);
+
+                const busFaderContainer = el('div', { className: 'mixer-fader-container' });
+                const busFader = el('input', { type: 'range', className: 'mixer-fader', min: '0', max: '100', value: '100' });
+                busFader.dataset.busType = busCfg.busType;
+                busFaderContainer.appendChild(busFader);
+
+                const busDb = el('div', { className: 'mixer-db', text: '0.0dB' });
+
+                // Compressor knob
+                const busCompGroup = el('div', { className: 'mixer-eq-group' });
+                const busCompLabel = el('label', { text: 'COMP' });
+                const busCompRange = el('input', {
+                    type: 'range', className: 'mixer-eq-range',
+                    min: '0', max: '100', value: '30', step: '1'
+                });
+                busCompRange.dataset.busType = busCfg.busType;
+                busCompRange.dataset.busParam = 'compressor';
+                busCompGroup.appendChild(busCompLabel);
+                busCompGroup.appendChild(busCompRange);
+
+                busCh.appendChild(busColorDot);
+                busCh.appendChild(busName);
+                busCh.appendChild(busVuContainer);
+                busCh.appendChild(busFaderContainer);
+                busCh.appendChild(busDb);
+                busCh.appendChild(busCompGroup);
+
+                container.appendChild(busCh);
             }
 
             // Master channel
@@ -2017,6 +2360,16 @@
                         this.audio.setMasterVolume(val);
                         const dbEl = e.target.closest('.mixer-channel').querySelector('.mixer-db');
                         if (dbEl) dbEl.textContent = (val > 0 ? (20 * Math.log10(val)).toFixed(1) : '-inf') + 'dB';
+                    } else if (e.target.dataset.busType) {
+                        // Phase 4: Bus fader
+                        const val = parseInt(e.target.value) / 100;
+                        if (e.target.dataset.busType === 'drums') {
+                            this.audio.setDrumBusVolume(val);
+                        } else if (e.target.dataset.busType === 'synths') {
+                            this.audio.setSynthBusVolume(val);
+                        }
+                        const dbEl = e.target.closest('.mixer-channel').querySelector('.mixer-db');
+                        if (dbEl) dbEl.textContent = (val > 0 ? (20 * Math.log10(val)).toFixed(1) : '-inf') + 'dB';
                     } else {
                         const ch = parseInt(e.target.dataset.channel);
                         const val = parseInt(e.target.value) / 100;
@@ -2034,12 +2387,22 @@
                         this.audio.channelPans[ch].pan.value = val;
                     }
                 }
-                // EQ ranges
+                // EQ ranges (also handles bus compressor knobs)
                 if (e.target.classList.contains('mixer-eq-range')) {
-                    const ch = parseInt(e.target.dataset.channel);
-                    const band = e.target.dataset.band;
-                    const dB = parseFloat(e.target.value);
-                    this.audio.setChannelEq(ch, band, dB);
+                    if (e.target.dataset.busParam === 'compressor') {
+                        // Phase 4: Bus compressor
+                        const val = parseInt(e.target.value) / 100;
+                        if (e.target.dataset.busType === 'drums') {
+                            this.audio.setDrumBusCompressor(val);
+                        } else if (e.target.dataset.busType === 'synths') {
+                            this.audio.setSynthBusCompressor(val);
+                        }
+                    } else {
+                        const ch = parseInt(e.target.dataset.channel);
+                        const band = e.target.dataset.band;
+                        const dB = parseFloat(e.target.value);
+                        this.audio.setChannelEq(ch, band, dB);
+                    }
                 }
                 // Send ranges
                 if (e.target.classList.contains('mixer-send-range')) {
@@ -2086,6 +2449,12 @@
             this.bindEffect('fx-compressor', v => this.audio.setCompressor(v / 100), v => v + '%');
             this.bindEffect('fx-master', v => this.audio.setMasterVolume(v / 100), v => v + '%');
 
+            // Phase 4: New effects
+            this.bindEffect('fx-chorus', v => this.audio.setChorus(v / 100), v => v + '%');
+            this.bindEffect('fx-phaser', v => this.audio.setPhaser(v / 100), v => v + '%');
+            this.bindEffect('fx-flanger', v => this.audio.setFlanger(v / 100), v => v + '%');
+            this.bindEffect('fx-bitcrusher', v => this.audio.setBitcrusher(v / 100), v => v + '%');
+
             // Synth editor channel buttons (delegation)
             const synthBtns = document.getElementById('synth-channel-btns');
             if (synthBtns) {
@@ -2127,6 +2496,13 @@
             }
 
             // Sidechain controls
+            const scSource = document.getElementById('sc-source');
+            if (scSource) {
+                scSource.addEventListener('change', (e) => {
+                    this.audio.sidechainSource = parseInt(e.target.value);
+                    this.autoSave();
+                });
+            }
             const scAmount = document.getElementById('sc-amount');
             if (scAmount) {
                 scAmount.addEventListener('input', (e) => {
@@ -3503,7 +3879,7 @@
 
         serializeProject() {
             return {
-                version: 3,
+                version: 4,
                 bpm: this.bpm,
                 swing: this.swing,
                 patterns: JSON.parse(JSON.stringify(this.state.patterns)),
@@ -3513,6 +3889,7 @@
                 channelParams: JSON.parse(JSON.stringify(this.audio.channelParams)),
                 sidechainAmount: this.audio.sidechainAmount,
                 sidechainRelease: this.audio.sidechainRelease,
+                sidechainSource: this.audio.sidechainSource,
                 metronome: { enabled: this.metronome.enabled, volume: this.metronome.volume }
             };
         }
@@ -3531,7 +3908,7 @@
                 document.getElementById('swing-val').textContent = this.swing + '%';
             }
             if (data.patterns) {
-                // Handle v2 -> v3 migration
+                // Handle v2 -> v3/v4 migration
                 if (version <= 2) {
                     // v2 patterns are flat arrays (pattern = array of channels, each channel = array of steps)
                     const migratedPatterns = [];
@@ -3672,6 +4049,11 @@
                     srEl.value = data.sidechainRelease;
                     document.getElementById('sc-release-val').textContent = data.sidechainRelease + 'ms';
                 }
+            }
+            if (typeof data.sidechainSource === 'number') {
+                this.audio.sidechainSource = data.sidechainSource;
+                const ssEl = document.getElementById('sc-source');
+                if (ssEl) ssEl.value = data.sidechainSource;
             }
             if (data.metronome) {
                 this.metronome.enabled = data.metronome.enabled || false;
