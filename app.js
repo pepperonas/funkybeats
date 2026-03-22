@@ -2416,11 +2416,18 @@
                     this.dragPaintedSteps.add(s);
                     this.updateStepDisplay(ch, s);
                     // Play sound preview when activating a step
-                    if (this.dragPaintValue && !this.playing && this.audio.initialized) {
-                        if (this.audio.ctx.state === 'suspended') {
-                            this.audio.ctx.resume();
-                        }
-                        this.audio.playChannel(ch, this.audio.ctx.currentTime + 0.01, stepData.velocity, stepData.note, stepData.open, 0.2);
+                    if (this.dragPaintValue && !this.playing) {
+                        const previewCh = ch;
+                        const previewVel = stepData.velocity;
+                        const previewNote = stepData.note;
+                        const previewOpen = stepData.open;
+                        this.audio.init().then(() => {
+                            if (this.audio.ctx.state === 'suspended') {
+                                return this.audio.ctx.resume();
+                            }
+                        }).then(() => {
+                            this.audio.playChannel(previewCh, this.audio.ctx.currentTime, previewVel, previewNote, previewOpen, 0.2);
+                        });
                     }
                     stepEl.setPointerCapture(e.pointerId);
                     e.preventDefault();
