@@ -1,7 +1,7 @@
 // ============================================
 // FUNKYBEATS - Complete Electronic Music Producer
 // Web Audio API Synthesized DAW Clone
-// v4.0 - Phase 1: Variable Length, Note Duration,
+// v5.0 - Phase 1: Variable Length, Note Duration,
 //        Velocity Lane, Automation, Metronome
 // Phase 2: Chord/Stab/Organ, Per-Channel EQ & Sends,
 //          Sample Playback, Note Glide
@@ -9,6 +9,8 @@
 //          Piano Roll Copy/Paste, Humanize, Help Modal
 // Phase 4: Chorus/Phaser/Flanger/Bitcrusher,
 //          Bus Routing, Sidechain Source Selection
+// Phase 5: Preset Browser, Context Menus, Piano Roll
+//          Zoom, WAV Export, MIDI Input
 // ============================================
 
 (() => {
@@ -1500,6 +1502,30 @@
         'hammann-digger': { bpm: 124, steps: { 0: { on: [0,3,4,8,12], velocity: [0.8,0.5,0.8,0.8,0.8,0.8,0.8,0.8,0.5,0.8,0.8,0.8,0.8,0.8,0.8,0.8] }, 1: { on: [4,12] }, 2: { on: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], velocity: [0.6,0.25,0.45,0.25,0.6,0.25,0.45,0.25,0.6,0.25,0.45,0.25,0.6,0.25,0.45,0.25] }, 3: { on: [4], velocity: [,,,,0.7] }, 4: { on: [3,7,11], velocity: [,,,0.4,,,,0.35,,,,0.4] }, 5: { on: [0,3,6,8,11,14], notes: [41,44,36,39,41,44] }, 6: { on: [2,6,10,14], notes: [68,72,65,68] }, 7: { on: [0,8], notes: [60,63] } } }
     };
 
+    // ---- Phase 5: Preset Metadata (separate from pattern data) ----
+    const PRESET_META = {
+        'four-on-floor': { artist: 'Classic', tags: ['house', '4x4'], description: 'Classic four-on-the-floor house beat' },
+        'breakbeat': { artist: 'Classic', tags: ['breakbeat', 'breaks'], description: 'Syncopated breakbeat pattern' },
+        'minimal-techno': { artist: 'Classic', tags: ['techno', 'minimal'], description: 'Stripped-down minimal techno groove' },
+        'deep-house': { artist: 'Classic', tags: ['house', 'deep'], description: 'Deep house with subtle grooves' },
+        'drum-n-bass': { artist: 'Classic', tags: ['dnb', 'jungle'], description: 'Fast-paced drum and bass rhythm' },
+        'phonk-jackin': { artist: 'Phonk D', tags: ['jackin', 'house', 'funk'], description: 'Jackin house with ghost kicks' },
+        'phonk-filtered-disko': { artist: 'Phonk D', tags: ['disco', 'house', 'filter'], description: 'Filtered disco house with off-beat hats' },
+        'phonk-bumpin': { artist: 'Phonk D', tags: ['percussion', 'house', 'funk'], description: 'Percussion-driven funky house' },
+        'phonk-stabs': { artist: 'Phonk D', tags: ['stabs', 'house', 'funk'], description: 'Off-beat funk stabs with chromatic bass' },
+        'phonk-deep-jackin': { artist: 'Phonk D', tags: ['deep', 'jackin', 'house'], description: 'Deep jackin house with warm pads' },
+        'storken-lille-vals': { artist: 'Storken', tags: ['disco', 'waltz', 'nu-disco'], description: 'Waltz polyrhythm in 4/4, arpeggio lead' },
+        'storken-skogsdisko': { artist: 'Storken', tags: ['disco', 'organic', 'nu-disco'], description: 'Forest disco with pentatonic bass walk' },
+        'storken-italo-arp': { artist: 'Storken', tags: ['italo', 'arpeggio', 'disco'], description: 'Full 16-step Bb major arpeggio sequence' },
+        'storken-scandi-cosmic': { artist: 'Storken', tags: ['cosmic', 'disco', 'space'], description: 'Cosmic disco with wide bass intervals' },
+        'storken-stupidisco': { artist: 'Storken', tags: ['disco', 'energy', 'pop'], description: 'Energetic pop-disco with bouncy bass' },
+        'hammann-808mate': { artist: 'T. Hammann', tags: ['minimal', 'acid', 'workshop'], description: 'Reduced acid bass with shuffled drums' },
+        'hammann-liquid': { artist: 'T. Hammann', tags: ['deep', 'house', 'piano'], description: 'Seductive deep house with syncopated chords' },
+        'hammann-wahwah': { artist: 'T. Hammann', tags: ['boogie', 'disco', 'funk'], description: 'Wah-wah guitar stabs with boogie bass' },
+        'hammann-ffm-deep': { artist: 'T. Hammann', tags: ['deep', 'minimal', 'ambient'], description: 'Ultra-reduced Frankfurt deep house' },
+        'hammann-digger': { artist: 'T. Hammann', tags: ['chicago', 'jazz', 'eclectic'], description: 'Eclectic jazz-funk meets Chicago house' },
+    };
+
     // ---- Main Application ----
     class FunkyBeatsApp {
         constructor() {
@@ -1565,6 +1591,20 @@
             // Help modal (Phase 3)
             this.helpModalOpen = false;
 
+            // Phase 5: Preset browser
+            this.presetBrowserOpen = false;
+
+            // Phase 5: Context menu
+            this.activeContextMenu = null;
+
+            // Phase 5: Piano Roll Zoom
+            this.pianoRollZoom = 1.0;
+            this.pianoRollScrollX = 0;
+
+            // Phase 5: MIDI
+            this.midiAccess = null;
+            this.midiConnected = false;
+
             // Synth editor
             this.synthEditorChannel = 0;
 
@@ -1597,6 +1637,7 @@
             this.bindEvents();
             this.loadAutoSave();
             this.startVisualizer();
+            this.initMIDI();
             this.setStatus('Ready');
         }
 
@@ -2241,10 +2282,49 @@
             // Sample import
             document.getElementById('sample-import').addEventListener('change', (e) => this.handleSampleImport(e));
 
-            // WAV export
+            // WAV export (Phase 5: full implementation)
             const btnExport = document.getElementById('btn-export');
             if (btnExport) {
-                btnExport.addEventListener('click', () => this.setStatus('WAV export not yet implemented'));
+                btnExport.addEventListener('click', () => this.exportWAV());
+            }
+
+            // Phase 5: Undo/Redo buttons
+            const btnUndo = document.getElementById('btn-undo');
+            const btnRedo = document.getElementById('btn-redo');
+            if (btnUndo) {
+                btnUndo.addEventListener('click', () => {
+                    if (this.state.undo()) {
+                        this.syncStepsDropdown();
+                        this.buildStepIndicators();
+                        this.buildSequencerGrid();
+                        this.drawPianoRoll();
+                        this.drawAutomation();
+                        this.flashUndo();
+                        this.setStatus('Undo');
+                        this.autoSave();
+                        this.updateUndoRedoButtons();
+                    }
+                });
+            }
+            if (btnRedo) {
+                btnRedo.addEventListener('click', () => {
+                    if (this.state.redo()) {
+                        this.syncStepsDropdown();
+                        this.buildStepIndicators();
+                        this.buildSequencerGrid();
+                        this.drawPianoRoll();
+                        this.drawAutomation();
+                        this.setStatus('Redo');
+                        this.autoSave();
+                        this.updateUndoRedoButtons();
+                    }
+                });
+            }
+
+            // Phase 5: Browse presets button
+            const btnBrowse = document.getElementById('btn-browse-presets');
+            if (btnBrowse) {
+                btnBrowse.addEventListener('click', () => this.togglePresetBrowser());
             }
 
             // Tabs
@@ -2331,10 +2411,11 @@
                     this.dragPainting = false;
                     this.dragPaintedSteps.clear();
                     this.autoSave();
+                    this.updateUndoRedoButtons();
                 }
             });
 
-            // Sequencer right-click for velocity
+            // Phase 5: Sequencer right-click context menu
             document.querySelector('.sequencer-grid').addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 const stepEl = e.target.closest('.seq-step');
@@ -2342,13 +2423,29 @@
                 const ch = parseInt(stepEl.dataset.channel);
                 const s = parseInt(stepEl.dataset.step);
                 const stepData = this.state.getStep(ch, s);
-                if (!stepData.on) return;
-                // Cycle velocity: 0.25 -> 0.5 -> 0.75 -> 1.0 -> 0.25
-                const vels = [0.25, 0.5, 0.75, 1.0];
-                const currIdx = vels.findIndex(v => Math.abs(v - stepData.velocity) < 0.1);
-                stepData.velocity = vels[(currIdx + 1) % vels.length];
-                this.updateStepDisplay(ch, s);
-                this.autoSave();
+
+                const items = [
+                    { label: 'Set Velocity 25%', action: () => { stepData.velocity = 0.25; this.updateStepDisplay(ch, s); this.autoSave(); }, disabled: !stepData.on },
+                    { label: 'Set Velocity 50%', action: () => { stepData.velocity = 0.5; this.updateStepDisplay(ch, s); this.autoSave(); }, disabled: !stepData.on },
+                    { label: 'Set Velocity 75%', action: () => { stepData.velocity = 0.75; this.updateStepDisplay(ch, s); this.autoSave(); }, disabled: !stepData.on },
+                    { label: 'Set Velocity 100%', action: () => { stepData.velocity = 1.0; this.updateStepDisplay(ch, s); this.autoSave(); }, disabled: !stepData.on },
+                ];
+                if (ch === 2) {
+                    items.push({ label: 'separator' });
+                    items.push({ label: 'Toggle Open Hat', action: () => {
+                        if (stepData.on) { stepData.open = !stepData.open; this.updateStepDisplay(ch, s); this.autoSave(); }
+                    }, disabled: !stepData.on });
+                }
+                items.push({ label: 'separator' });
+                items.push({ label: 'Clear Step', action: () => {
+                    this.state.pushUndo();
+                    stepData.on = false;
+                    stepData.open = false;
+                    this.updateStepDisplay(ch, s);
+                    this.autoSave();
+                    this.updateUndoRedoButtons();
+                }});
+                this.showContextMenu(e.clientX, e.clientY, items);
             });
 
             // Mixer events (delegation)
@@ -2641,7 +2738,28 @@
                 this.pianoCanvas.addEventListener('mousemove', (e) => this.handlePianoRollMouseMove(e));
                 this.pianoCanvas.addEventListener('mouseup', (e) => this.handlePianoRollMouseUp(e));
                 this.pianoCanvas.addEventListener('mouseleave', (e) => this.handlePianoRollMouseUp(e));
-                this.pianoCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
+                this.pianoCanvas.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    this.handlePianoRollContextMenu(e);
+                });
+                // Phase 5: Zoom with Ctrl+Wheel, scroll with Shift+Wheel
+                this.pianoCanvas.addEventListener('wheel', (e) => this.handlePianoRollWheel(e), { passive: false });
+            }
+
+            // Phase 5: Zoom buttons
+            const btnZoomIn = document.getElementById('btn-zoom-in');
+            const btnZoomOut = document.getElementById('btn-zoom-out');
+            if (btnZoomIn) {
+                btnZoomIn.addEventListener('click', () => {
+                    this.pianoRollZoom = Math.min(3.0, this.pianoRollZoom + 0.25);
+                    this.updatePianoRollZoom();
+                });
+            }
+            if (btnZoomOut) {
+                btnZoomOut.addEventListener('click', () => {
+                    this.pianoRollZoom = Math.max(0.5, this.pianoRollZoom - 0.25);
+                    this.updatePianoRollZoom();
+                });
             }
 
             // Automation events
@@ -2726,6 +2844,7 @@
                     this.flashUndo();
                     this.setStatus('Undo');
                     this.autoSave();
+                    this.updateUndoRedoButtons();
                 }
                 return;
             }
@@ -2741,6 +2860,7 @@
                     this.drawAutomation();
                     this.setStatus('Redo');
                     this.autoSave();
+                    this.updateUndoRedoButtons();
                 }
                 return;
             }
@@ -2790,9 +2910,13 @@
                 }
             }
 
-            // Escape: stop
+            // Escape: close modals or stop
             if (e.key === 'Escape') {
-                if (this.helpModalOpen) {
+                if (this.activeContextMenu) {
+                    this.closeContextMenu();
+                } else if (this.presetBrowserOpen) {
+                    this.togglePresetBrowser();
+                } else if (this.helpModalOpen) {
                     this.toggleHelpModal();
                 } else {
                     this.stop();
@@ -3238,6 +3362,9 @@
         drawPianoRoll() {
             if (!this.pianoCtx || !this.pianoCanvas) return;
             const ctx = this.pianoCtx;
+            const zoom = this.pianoRollZoom;
+            const virtualW = Math.round(800 * zoom);
+            this.pianoCanvas.width = virtualW;
             const w = this.pianoCanvas.width;
             const h = this.pianoCanvas.height;
             const noteAreaH = 480;
@@ -3879,7 +4006,7 @@
 
         serializeProject() {
             return {
-                version: 4,
+                version: 5,
                 bpm: this.bpm,
                 swing: this.swing,
                 patterns: JSON.parse(JSON.stringify(this.state.patterns)),
@@ -4419,6 +4546,764 @@
             });
 
             return overlay;
+        }
+
+        // ---- Phase 5: Undo/Redo Button State ----
+        updateUndoRedoButtons() {
+            const btnUndo = document.getElementById('btn-undo');
+            const btnRedo = document.getElementById('btn-redo');
+            if (btnUndo) {
+                btnUndo.classList.toggle('disabled', this.state.undoStack.length === 0);
+            }
+            if (btnRedo) {
+                btnRedo.classList.toggle('disabled', this.state.redoStack.length === 0);
+            }
+        }
+
+        // ---- Phase 5: Context Menu ----
+        showContextMenu(x, y, items) {
+            this.closeContextMenu();
+            const menu = el('div', { className: 'context-menu' });
+            menu.style.left = x + 'px';
+            menu.style.top = y + 'px';
+
+            for (const item of items) {
+                if (item.label === 'separator') {
+                    menu.appendChild(el('div', { className: 'context-menu-separator' }));
+                    continue;
+                }
+                const btn = el('button', {
+                    className: 'context-menu-item' + (item.disabled ? ' disabled' : ''),
+                    text: item.label
+                });
+                if (!item.disabled && item.action) {
+                    btn.addEventListener('click', () => {
+                        item.action();
+                        this.closeContextMenu();
+                    });
+                }
+                menu.appendChild(btn);
+            }
+
+            document.body.appendChild(menu);
+            this.activeContextMenu = menu;
+
+            // Adjust position if off-screen
+            const rect = menu.getBoundingClientRect();
+            if (rect.right > window.innerWidth) {
+                menu.style.left = (x - rect.width) + 'px';
+            }
+            if (rect.bottom > window.innerHeight) {
+                menu.style.top = (y - rect.height) + 'px';
+            }
+
+            // Close on click outside
+            const closeHandler = (e) => {
+                if (!menu.contains(e.target)) {
+                    this.closeContextMenu();
+                    document.removeEventListener('mousedown', closeHandler);
+                }
+            };
+            setTimeout(() => {
+                document.addEventListener('mousedown', closeHandler);
+            }, 0);
+        }
+
+        closeContextMenu() {
+            if (this.activeContextMenu) {
+                this.activeContextMenu.remove();
+                this.activeContextMenu = null;
+            }
+        }
+
+        // ---- Phase 5: Piano Roll Context Menu ----
+        handlePianoRollContextMenu(e) {
+            const rect = this.pianoCanvas.getBoundingClientRect();
+            const scaleX = this.pianoCanvas.width / rect.width;
+            const scaleY = this.pianoCanvas.height / rect.height;
+            const canvasX = (e.clientX - rect.left) * scaleX;
+            const canvasY = (e.clientY - rect.top) * scaleY;
+            const noteAreaH = 480;
+            const rows = 24;
+            const rowH = noteAreaH / rows;
+            const steps = this.state.getSteps();
+            const colW = this.pianoCanvas.width / steps;
+
+            if (canvasY > noteAreaH) return; // velocity lane
+
+            const step = Math.floor(canvasX / colW);
+            const row = Math.floor(canvasY / rowH);
+            const noteOffset = rows - 1 - row;
+            const baseNote = (this.pianoRollOctave + 1) * 12;
+            const midiNote = baseNote + noteOffset;
+            if (step < 0 || step >= steps) return;
+
+            const channels = this.state.getCurrentPatternChannels();
+            const ch = this.pianoRollChannel;
+            const stepData = channels[ch][step];
+            const hasNote = stepData.on && stepData.note === midiNote;
+
+            const items = [];
+            if (hasNote) {
+                items.push({ label: 'Delete Note', action: () => {
+                    this.state.pushUndo();
+                    stepData.on = false;
+                    this.updateStepDisplay(ch, step);
+                    this.drawPianoRoll();
+                    this.autoSave();
+                    this.updateUndoRedoButtons();
+                }});
+                items.push({ label: 'separator' });
+                items.push({ label: 'Velocity 25%', action: () => { stepData.velocity = 0.25; this.drawPianoRoll(); this.autoSave(); }});
+                items.push({ label: 'Velocity 50%', action: () => { stepData.velocity = 0.5; this.drawPianoRoll(); this.autoSave(); }});
+                items.push({ label: 'Velocity 75%', action: () => { stepData.velocity = 0.75; this.drawPianoRoll(); this.autoSave(); }});
+                items.push({ label: 'Velocity 100%', action: () => { stepData.velocity = 1.0; this.drawPianoRoll(); this.autoSave(); }});
+                items.push({ label: 'separator' });
+                items.push({ label: 'Duration 1 step', action: () => { stepData.duration = 1; this.drawPianoRoll(); this.autoSave(); }});
+                items.push({ label: 'Duration 2 steps', action: () => { stepData.duration = 2; this.drawPianoRoll(); this.autoSave(); }});
+                items.push({ label: 'Duration 4 steps', action: () => { stepData.duration = 4; this.drawPianoRoll(); this.autoSave(); }});
+                items.push({ label: 'Duration 8 steps', action: () => { stepData.duration = 8; this.drawPianoRoll(); this.autoSave(); }});
+            } else {
+                items.push({ label: 'No note here', disabled: true });
+            }
+
+            this.showContextMenu(e.clientX, e.clientY, items);
+        }
+
+        // ---- Phase 5: Piano Roll Zoom ----
+        updatePianoRollZoom() {
+            const display = document.getElementById('zoom-display');
+            if (display) display.textContent = Math.round(this.pianoRollZoom * 100) + '%';
+            this.drawPianoRoll();
+        }
+
+        handlePianoRollWheel(e) {
+            if (e.ctrlKey) {
+                // Zoom
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? -0.25 : 0.25;
+                this.pianoRollZoom = Math.max(0.5, Math.min(3.0, this.pianoRollZoom + delta));
+                this.updatePianoRollZoom();
+            } else if (e.shiftKey) {
+                // Horizontal scroll
+                e.preventDefault();
+                const wrapper = document.getElementById('pianoroll-canvas-wrapper');
+                if (wrapper) {
+                    wrapper.scrollLeft += e.deltaY;
+                }
+            }
+        }
+
+        // ---- Phase 5: Preset Browser ----
+        togglePresetBrowser() {
+            this.presetBrowserOpen = !this.presetBrowserOpen;
+            let modal = document.getElementById('preset-browser-modal');
+            if (this.presetBrowserOpen) {
+                if (modal) modal.remove();
+                modal = this.buildPresetBrowser();
+                document.getElementById('app').appendChild(modal);
+            } else {
+                if (modal) modal.remove();
+            }
+        }
+
+        buildPresetBrowser() {
+            const overlay = el('div', { id: 'preset-browser-modal', className: 'preset-browser-overlay' });
+
+            const card = el('div', { className: 'preset-browser-card' });
+
+            // Header
+            const header = el('div', { className: 'preset-browser-header' });
+            const title = el('span', { className: 'preset-browser-title', text: 'PRESET BROWSER' });
+            const closeBtn = el('button', { className: 'preset-browser-close', text: 'X' });
+            closeBtn.addEventListener('click', () => this.togglePresetBrowser());
+            header.appendChild(title);
+            header.appendChild(closeBtn);
+            card.appendChild(header);
+
+            // Search
+            const searchInput = el('input', { className: 'preset-browser-search', type: 'text', placeholder: 'Search presets...' });
+            card.appendChild(searchInput);
+
+            // Tags
+            const allTags = new Set();
+            for (const meta of Object.values(PRESET_META)) {
+                for (const tag of meta.tags) allTags.add(tag);
+            }
+            // Also check user presets
+            const userPresets = this.getUserPresets();
+            for (const up of Object.values(userPresets)) {
+                if (up.tags) {
+                    for (const tag of up.tags) allTags.add(tag);
+                }
+            }
+            const sortedTags = Array.from(allTags).sort();
+
+            const tagContainer = el('div', { className: 'preset-browser-tags' });
+            const activeTagsSet = new Set();
+
+            for (const tag of sortedTags) {
+                const tagBtn = el('button', { className: 'preset-tag-btn', text: tag });
+                tagBtn.addEventListener('click', () => {
+                    if (activeTagsSet.has(tag)) {
+                        activeTagsSet.delete(tag);
+                        tagBtn.classList.remove('active');
+                    } else {
+                        activeTagsSet.add(tag);
+                        tagBtn.classList.add('active');
+                    }
+                    filterPresets();
+                });
+                tagContainer.appendChild(tagBtn);
+            }
+            card.appendChild(tagContainer);
+
+            // List
+            const list = el('div', { className: 'preset-browser-list' });
+            card.appendChild(list);
+
+            // Footer (save user preset)
+            const footer = el('div', { className: 'preset-browser-footer' });
+            const saveInput = el('input', { className: 'preset-save-input', type: 'text', placeholder: 'Name for new user preset...' });
+            const saveBtn = el('button', { className: 'preset-save-btn', text: 'SAVE AS PRESET' });
+            saveBtn.addEventListener('click', () => {
+                const name = saveInput.value.trim();
+                if (!name) return;
+                this.saveUserPreset(name);
+                saveInput.value = '';
+                filterPresets(); // Refresh list
+            });
+            footer.appendChild(saveInput);
+            footer.appendChild(saveBtn);
+            card.appendChild(footer);
+
+            overlay.appendChild(card);
+
+            // Close on overlay click
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) this.togglePresetBrowser();
+            });
+
+            const filterPresets = () => {
+                while (list.firstChild) list.removeChild(list.firstChild);
+                const query = searchInput.value.toLowerCase().trim();
+
+                // Built-in presets
+                const builtInTitle = el('div', { className: 'preset-browser-section-title', text: 'BUILT-IN PRESETS' });
+                list.appendChild(builtInTitle);
+
+                let builtInCount = 0;
+                for (const [presetName, presetData] of Object.entries(PRESETS)) {
+                    const meta = PRESET_META[presetName] || { artist: 'Unknown', tags: [], description: '' };
+                    if (!this.presetMatchesFilter(presetName, meta, query, activeTagsSet)) continue;
+                    builtInCount++;
+                    const item = this.buildPresetBrowserItem(presetName, meta, () => {
+                        this.loadPreset(presetName);
+                        // Also update the select dropdown
+                        const sel = document.getElementById('preset-select');
+                        if (sel) sel.value = presetName;
+                        this.togglePresetBrowser();
+                    });
+                    list.appendChild(item);
+                }
+                if (builtInCount === 0) {
+                    list.appendChild(el('div', { className: 'preset-browser-item', style: { color: 'var(--text-muted)', cursor: 'default' } }, [
+                        el('span', { text: 'No matching presets' })
+                    ]));
+                }
+
+                // User presets
+                const currentUserPresets = this.getUserPresets();
+                const userKeys = Object.keys(currentUserPresets);
+                if (userKeys.length > 0) {
+                    const userTitle = el('div', { className: 'preset-browser-section-title', text: 'USER PRESETS' });
+                    list.appendChild(userTitle);
+
+                    for (const upName of userKeys) {
+                        const upData = currentUserPresets[upName];
+                        const upMeta = { artist: 'User', tags: upData.tags || [], description: upData.description || 'User-saved preset' };
+                        if (!this.presetMatchesFilter(upName, upMeta, query, activeTagsSet)) continue;
+                        const item = this.buildPresetBrowserItem(upName, upMeta, () => {
+                            this.loadUserPreset(upName);
+                            this.togglePresetBrowser();
+                        });
+                        list.appendChild(item);
+                    }
+                }
+            };
+
+            searchInput.addEventListener('input', filterPresets);
+
+            // Initial render
+            filterPresets();
+
+            // Focus search on open
+            setTimeout(() => searchInput.focus(), 50);
+
+            return overlay;
+        }
+
+        presetMatchesFilter(name, meta, query, activeTagsSet) {
+            // Tag filter
+            if (activeTagsSet.size > 0) {
+                const hasMatchingTag = meta.tags.some(t => activeTagsSet.has(t));
+                if (!hasMatchingTag) return false;
+            }
+            // Text search
+            if (query) {
+                const searchStr = (name + ' ' + meta.artist + ' ' + meta.tags.join(' ') + ' ' + meta.description).toLowerCase();
+                if (!searchStr.includes(query)) return false;
+            }
+            return true;
+        }
+
+        buildPresetBrowserItem(presetName, meta, onClickFn) {
+            const item = el('div', { className: 'preset-browser-item' });
+            const topRow = el('div', { className: 'preset-browser-item-top' });
+            // Format display name
+            const displayName = presetName.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            topRow.appendChild(el('span', { className: 'preset-browser-item-name', text: displayName }));
+            topRow.appendChild(el('span', { className: 'preset-browser-item-artist', text: meta.artist }));
+            item.appendChild(topRow);
+            if (meta.description) {
+                item.appendChild(el('span', { className: 'preset-browser-item-desc', text: meta.description }));
+            }
+            if (meta.tags && meta.tags.length > 0) {
+                const tagsRow = el('div', { className: 'preset-browser-item-tags' });
+                for (const tag of meta.tags) {
+                    tagsRow.appendChild(el('span', { className: 'preset-item-tag', text: tag }));
+                }
+                item.appendChild(tagsRow);
+            }
+            item.addEventListener('click', onClickFn);
+            return item;
+        }
+
+        // ---- Phase 5: User Presets ----
+        getUserPresets() {
+            try {
+                const data = localStorage.getItem('funkybeats-user-presets');
+                return data ? JSON.parse(data) : {};
+            } catch (e) {
+                return {};
+            }
+        }
+
+        saveUserPreset(name) {
+            const presets = this.getUserPresets();
+            const projectData = this.serializeProject();
+            presets[name] = {
+                data: projectData,
+                tags: ['user'],
+                description: 'Saved at ' + new Date().toLocaleString()
+            };
+            try {
+                localStorage.setItem('funkybeats-user-presets', JSON.stringify(presets));
+                this.setStatus('User preset saved: ' + name);
+            } catch (e) {
+                this.setStatus('Failed to save user preset: ' + e.message);
+            }
+        }
+
+        loadUserPreset(name) {
+            const presets = this.getUserPresets();
+            if (!presets[name] || !presets[name].data) return;
+            this.deserializeProject(presets[name].data);
+            this.setStatus('Loaded user preset: ' + name);
+        }
+
+        // ---- Phase 5: MIDI Input ----
+        initMIDI() {
+            if (!navigator.requestMIDIAccess) {
+                return; // MIDI not available
+            }
+            navigator.requestMIDIAccess().then(
+                (midiAccess) => {
+                    this.midiAccess = midiAccess;
+                    this.midiConnected = true;
+                    const statusEl = document.getElementById('midi-status');
+                    if (statusEl) {
+                        statusEl.textContent = 'MIDI: Connected';
+                        statusEl.classList.add('connected');
+                    }
+
+                    // Listen on all inputs
+                    for (const input of midiAccess.inputs.values()) {
+                        input.onmidimessage = (msg) => this.handleMIDIMessage(msg);
+                    }
+
+                    // Handle hotplug
+                    midiAccess.onstatechange = () => {
+                        for (const input of midiAccess.inputs.values()) {
+                            input.onmidimessage = (msg) => this.handleMIDIMessage(msg);
+                        }
+                    };
+                },
+                () => {
+                    // MIDI access denied or not available
+                }
+            );
+        }
+
+        handleMIDIMessage(msg) {
+            const data = msg.data;
+            const status = data[0] & 0xf0;
+            const note = data[1];
+            const velocity = data[2];
+
+            // Note-on
+            if (status === 0x90 && velocity > 0) {
+                // Preview the note on the current piano roll channel
+                this.audio.previewNote(this.pianoRollChannel, note);
+
+                // If recording + playing: insert note at current step
+                if (this.playing && this.recording && this.currentStep >= 0) {
+                    const channels = this.state.getCurrentPatternChannels();
+                    const ch = this.pianoRollChannel;
+                    const stepData = channels[ch][this.currentStep];
+                    stepData.on = true;
+                    stepData.note = note;
+                    stepData.velocity = velocity / 127;
+                    this.updateStepDisplay(ch, this.currentStep);
+                    this.drawPianoRoll();
+                    this.autoSave();
+                }
+            }
+            // Note-off (ignored for now as per spec)
+        }
+
+        // ---- Phase 5: WAV Export ----
+        async exportWAV() {
+            await this.audio.init();
+            const sampleRate = 44100;
+            const bpm = this.bpm;
+            const stepDuration = 60 / bpm / 4;
+
+            // Determine what to export
+            let totalSteps;
+            let patternSequence = []; // array of {patternIdx, stepsCount}
+
+            if (this.playMode === 'song' && this.state.arrangement.length > 0) {
+                // Song mode: export full arrangement
+                const arr = this.state.arrangement;
+                for (let i = 0; i < arr.length; i++) {
+                    if (arr[i] >= 0) {
+                        const pat = this.state.patterns[arr[i]];
+                        patternSequence.push({ patternIdx: arr[i], stepsCount: pat.stepsCount });
+                    }
+                }
+                if (patternSequence.length === 0) {
+                    this.setStatus('No patterns in arrangement to export');
+                    return;
+                }
+            } else {
+                // Pattern mode: repeat current pattern 4x
+                const pat = this.state.getCurrentPattern();
+                for (let r = 0; r < 4; r++) {
+                    patternSequence.push({ patternIdx: this.state.currentPattern, stepsCount: pat.stepsCount });
+                }
+            }
+
+            totalSteps = patternSequence.reduce((sum, p) => sum + p.stepsCount, 0);
+            const totalDuration = totalSteps * stepDuration + 2; // +2 sec tail
+            const totalFrames = Math.ceil(totalDuration * sampleRate);
+
+            this.setStatus('Rendering WAV... 0%');
+
+            const offlineCtx = new OfflineAudioContext(2, totalFrames, sampleRate);
+
+            // Create a simple master gain
+            const masterGain = offlineCtx.createGain();
+            masterGain.gain.value = 0.8;
+            masterGain.connect(offlineCtx.destination);
+
+            // Schedule all notes
+            let currentTime = 0;
+            let scheduledBars = 0;
+            const totalBars = patternSequence.length;
+
+            for (const seqEntry of patternSequence) {
+                const pat = this.state.patterns[seqEntry.patternIdx];
+                const steps = seqEntry.stepsCount;
+
+                for (let s = 0; s < steps; s++) {
+                    const time = currentTime + s * stepDuration;
+
+                    for (let ch = 0; ch < CHANNELS.length && ch < pat.channels.length; ch++) {
+                        const stepData = pat.channels[ch][s];
+                        if (!stepData || !stepData.on) continue;
+                        const velocity = stepData.velocity || 0.8;
+                        const noteLength = (stepData.duration || 1) * stepDuration;
+
+                        // Simplified synth rendering for offline context
+                        this.scheduleOfflineNote(offlineCtx, masterGain, ch, time, velocity, stepData.note, stepData.open, noteLength);
+                    }
+                }
+
+                currentTime += steps * stepDuration;
+                scheduledBars++;
+
+                // Update progress
+                const pct = Math.round((scheduledBars / totalBars) * 50);
+                this.setStatus('Rendering WAV... ' + pct + '%');
+            }
+
+            this.setStatus('Rendering WAV... finalizing...');
+
+            try {
+                const renderedBuffer = await offlineCtx.startRendering();
+
+                // Encode to WAV
+                const wavBlob = this.encodeWAV(renderedBuffer);
+                const url = URL.createObjectURL(wavBlob);
+                const a = el('a', { href: url, download: 'funkybeats-export.wav' });
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                this.setStatus('WAV exported successfully (' + Math.round(totalDuration) + 's, ' + totalBars + ' bars)');
+            } catch (err) {
+                this.setStatus('WAV export failed: ' + err.message);
+            }
+        }
+
+        scheduleOfflineNote(ctx, destination, channelIdx, time, velocity, note, isOpen, noteLength) {
+            const ch = CHANNELS[channelIdx];
+            if (!ch) return;
+
+            if (ch.type === 'drum') {
+                switch (channelIdx) {
+                    case 0: this.scheduleOfflineKick(ctx, destination, time, velocity); break;
+                    case 1: this.scheduleOfflineSnare(ctx, destination, time, velocity); break;
+                    case 2: this.scheduleOfflineHihat(ctx, destination, time, velocity, isOpen); break;
+                    case 3: this.scheduleOfflineClap(ctx, destination, time, velocity); break;
+                    case 4: this.scheduleOfflinePerc(ctx, destination, time, velocity); break;
+                }
+            } else {
+                this.scheduleOfflineSynth(ctx, destination, channelIdx, time, note || 48, velocity, noteLength);
+            }
+        }
+
+        scheduleOfflineKick(ctx, dest, time, velocity) {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(150, time);
+            osc.frequency.exponentialRampToValueAtTime(50, time + 0.04);
+            gain.gain.setValueAtTime(velocity, time);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.3);
+            osc.connect(gain);
+            gain.connect(dest);
+            osc.start(time);
+            osc.stop(time + 0.35);
+        }
+
+        scheduleOfflineSnare(ctx, dest, time, velocity) {
+            // Tone
+            const osc = ctx.createOscillator();
+            const oscGain = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(200, time);
+            osc.frequency.exponentialRampToValueAtTime(120, time + 0.03);
+            oscGain.gain.setValueAtTime(velocity * 0.6, time);
+            oscGain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+            osc.connect(oscGain);
+            oscGain.connect(dest);
+            osc.start(time);
+            osc.stop(time + 0.15);
+
+            // Noise
+            const bufferSize = Math.ceil(ctx.sampleRate * 0.15);
+            const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+            const data = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+            const noise = ctx.createBufferSource();
+            noise.buffer = noiseBuffer;
+            const noiseGain = ctx.createGain();
+            const hpf = ctx.createBiquadFilter();
+            hpf.type = 'highpass';
+            hpf.frequency.value = 5000;
+            noiseGain.gain.setValueAtTime(velocity * 0.4, time);
+            noiseGain.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
+            noise.connect(hpf);
+            hpf.connect(noiseGain);
+            noiseGain.connect(dest);
+            noise.start(time);
+            noise.stop(time + 0.15);
+        }
+
+        scheduleOfflineHihat(ctx, dest, time, velocity, isOpen) {
+            const decay = isOpen ? 0.25 : 0.06;
+            const bufferSize = Math.ceil(ctx.sampleRate * (decay + 0.05));
+            const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+            const data = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+            const noise = ctx.createBufferSource();
+            noise.buffer = noiseBuffer;
+            const gain = ctx.createGain();
+            const bpf = ctx.createBiquadFilter();
+            bpf.type = 'bandpass';
+            bpf.frequency.value = 10000;
+            bpf.Q.value = 1;
+            gain.gain.setValueAtTime(velocity * 0.35, time);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + decay);
+            noise.connect(bpf);
+            bpf.connect(gain);
+            gain.connect(dest);
+            noise.start(time);
+            noise.stop(time + decay + 0.05);
+        }
+
+        scheduleOfflineClap(ctx, dest, time, velocity) {
+            for (let burst = 0; burst < 3; burst++) {
+                const t = time + burst * 0.01;
+                const bufferSize = Math.ceil(ctx.sampleRate * 0.15);
+                const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+                const data = noiseBuffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+                const noise = ctx.createBufferSource();
+                noise.buffer = noiseBuffer;
+                const gain = ctx.createGain();
+                const bpf = ctx.createBiquadFilter();
+                bpf.type = 'bandpass';
+                bpf.frequency.value = 2500;
+                bpf.Q.value = 2;
+                gain.gain.setValueAtTime(velocity * 0.4, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+                noise.connect(bpf);
+                bpf.connect(gain);
+                gain.connect(dest);
+                noise.start(t);
+                noise.stop(t + 0.15);
+            }
+        }
+
+        scheduleOfflinePerc(ctx, dest, time, velocity) {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(1500, time);
+            osc.frequency.exponentialRampToValueAtTime(200, time + 0.02);
+            gain.gain.setValueAtTime(velocity * 0.4, time);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.08);
+            osc.connect(gain);
+            gain.connect(dest);
+            osc.start(time);
+            osc.stop(time + 0.1);
+        }
+
+        scheduleOfflineSynth(ctx, dest, channelIdx, time, note, velocity, noteLength) {
+            const freq = midiToFreq(note);
+            const params = this.audio.channelParams[channelIdx];
+            const attackTime = (params.attack / 100) * 0.2;
+            const decayTime = Math.max(0.1 + (params.decay / 100) * 0.5, noteLength);
+            const cutoff = 300 + (params.cutoff / 100) * 5000;
+
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            const filter = ctx.createBiquadFilter();
+
+            osc.type = params.waveform || 'sawtooth';
+            osc.frequency.value = freq;
+
+            filter.type = 'lowpass';
+            filter.frequency.value = cutoff;
+            filter.Q.value = Math.min(params.resonance || 3, 15);
+
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(velocity * 0.3, time + attackTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + attackTime + decayTime);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(dest);
+
+            osc.start(time);
+            osc.stop(time + attackTime + decayTime + 0.01);
+
+            // For chord channel, add chord notes
+            if (channelIdx === 8) {
+                const chordType = params.chordType || 'minor';
+                let intervals;
+                switch (chordType) {
+                    case 'major': intervals = [4, 7]; break;
+                    case 'minor': intervals = [3, 7]; break;
+                    case '7th': intervals = [4, 7, 10]; break;
+                    case 'min7': intervals = [3, 7, 10]; break;
+                    default: intervals = [3, 7]; break;
+                }
+                for (const interval of intervals) {
+                    const cFreq = freq * Math.pow(2, interval / 12);
+                    const cOsc = ctx.createOscillator();
+                    const cGain = ctx.createGain();
+                    cOsc.type = params.waveform || 'sawtooth';
+                    cOsc.frequency.value = cFreq;
+                    cGain.gain.setValueAtTime(0, time);
+                    cGain.gain.linearRampToValueAtTime(velocity * 0.2, time + attackTime);
+                    cGain.gain.exponentialRampToValueAtTime(0.001, time + attackTime + decayTime);
+                    cOsc.connect(filter);
+                    cOsc.start(time);
+                    cOsc.stop(time + attackTime + decayTime + 0.01);
+                }
+            }
+        }
+
+        encodeWAV(audioBuffer) {
+            const numChannels = audioBuffer.numberOfChannels;
+            const sampleRate = audioBuffer.sampleRate;
+            const format = 1; // PCM
+            const bitsPerSample = 16;
+            const blockAlign = numChannels * bitsPerSample / 8;
+            const byteRate = sampleRate * blockAlign;
+            const dataLength = audioBuffer.length * blockAlign;
+            const headerLength = 44;
+            const totalLength = headerLength + dataLength;
+
+            const buffer = new ArrayBuffer(totalLength);
+            const view = new DataView(buffer);
+
+            // RIFF header
+            this.writeString(view, 0, 'RIFF');
+            view.setUint32(4, totalLength - 8, true);
+            this.writeString(view, 8, 'WAVE');
+
+            // fmt chunk
+            this.writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true); // chunk size
+            view.setUint16(20, format, true);
+            view.setUint16(22, numChannels, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, byteRate, true);
+            view.setUint16(32, blockAlign, true);
+            view.setUint16(34, bitsPerSample, true);
+
+            // data chunk
+            this.writeString(view, 36, 'data');
+            view.setUint32(40, dataLength, true);
+
+            // Interleave channels and write samples
+            const channels = [];
+            for (let c = 0; c < numChannels; c++) {
+                channels.push(audioBuffer.getChannelData(c));
+            }
+
+            let offset = 44;
+            for (let i = 0; i < audioBuffer.length; i++) {
+                for (let c = 0; c < numChannels; c++) {
+                    const sample = Math.max(-1, Math.min(1, channels[c][i]));
+                    const intSample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+                    view.setInt16(offset, intSample, true);
+                    offset += 2;
+                }
+            }
+
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+
+        writeString(view, offset, str) {
+            for (let i = 0; i < str.length; i++) {
+                view.setUint8(offset + i, str.charCodeAt(i));
+            }
         }
 
         // ---- Status ----

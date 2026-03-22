@@ -19,6 +19,10 @@
                 <button id="btn-play" class="transport-btn" title="Play (Space)">&#9654;</button>
                 <button id="btn-stop" class="transport-btn" title="Stop (Space)">&#9632;</button>
                 <button id="btn-record" class="transport-btn rec-btn" title="Record">&#9679;</button>
+                <div class="undo-redo-btns">
+                    <button id="btn-undo" class="undo-redo-btn disabled" title="Undo (Ctrl+Z)">&lt;</button>
+                    <button id="btn-redo" class="undo-redo-btn disabled" title="Redo (Ctrl+Shift+Z)">&gt;</button>
+                </div>
                 <button id="btn-metronome" class="transport-btn met-btn" title="Metronome">MET</button>
                 <div class="transport-divider"></div>
                 <div class="bpm-control">
@@ -101,6 +105,7 @@
                             <option value="hammann-digger">Record Digger</option>
                         </optgroup>
                     </select>
+                    <button id="btn-browse-presets" class="preset-browse-btn" title="Browse Presets">BROWSE</button>
                 </div>
                 <div class="save-tools">
                     <button id="btn-save" class="tool-btn" title="Save Project (Ctrl+S)">SAVE</button>
@@ -156,11 +161,20 @@
                     <div class="pianoroll-divider"></div>
                     <button id="btn-pr-select" class="small-btn" title="Select Mode (Ctrl+C/V to copy/paste)">SEL</button>
                     <div class="pianoroll-divider"></div>
-                    <span class="keyboard-hint">Keyboard: Z-M = Notes | Shift = Octave Up | Drag = Note Length | SEL = Select/Copy/Paste</span>
+                    <div class="pianoroll-zoom-controls">
+                        <label style="font-size:10px;color:var(--text-secondary);font-weight:600">ZOOM</label>
+                        <button id="btn-zoom-out" class="small-btn" title="Zoom Out">-</button>
+                        <span id="zoom-display" class="pianoroll-zoom-display">100%</span>
+                        <button id="btn-zoom-in" class="small-btn" title="Zoom In">+</button>
+                    </div>
+                    <div class="pianoroll-divider"></div>
+                    <span class="keyboard-hint">Z-M = Notes | Drag = Length | Ctrl+Wheel = Zoom | Shift+Wheel = Scroll</span>
                 </div>
                 <div class="pianoroll-container">
                     <div class="piano-keys" id="piano-keys"></div>
-                    <canvas id="pianoroll-canvas" width="800" height="540"></canvas>
+                    <div class="pianoroll-canvas-wrapper" id="pianoroll-canvas-wrapper">
+                        <canvas id="pianoroll-canvas" width="800" height="540"></canvas>
+                    </div>
                 </div>
             </section>
 
@@ -363,6 +377,7 @@
             <span id="status-left">Ready</span>
             <span id="status-center"></span>
             <span id="status-right">
+                <span id="midi-status" class="midi-indicator">MIDI: --</span>
                 <button id="btn-help" class="status-help-btn" title="Keyboard Shortcuts (?)">?</button>
                 Ctrl+Z Undo | Ctrl+S Save | T Tap | Web Audio 44.1kHz
             </span>
