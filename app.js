@@ -2404,7 +2404,7 @@
                     this.updateStepDisplay(ch, s);
                     // Play sound preview when activating a step
                     if (this.dragPaintValue && !this.playing) {
-                        this.ensureAudio().then(() => {
+                        this.audio.init().then(() => {
                             this.audio.playChannel(ch, this.audio.ctx.currentTime, stepData.velocity, stepData.note, stepData.open, 0.2);
                         });
                     }
