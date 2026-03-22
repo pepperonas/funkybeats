@@ -2208,6 +2208,19 @@
 
         // ---- Event Binding ----
         bindEvents() {
+            // Initialize audio on first user interaction (ensures AudioContext is ready for all subsequent clicks)
+            const initAudioOnce = () => {
+                this.audio.init().then(() => {
+                    if (this.audio.ctx && this.audio.ctx.state === 'suspended') {
+                        this.audio.ctx.resume();
+                    }
+                });
+                document.removeEventListener('pointerdown', initAudioOnce);
+                document.removeEventListener('keydown', initAudioOnce);
+            };
+            document.addEventListener('pointerdown', initAudioOnce);
+            document.addEventListener('keydown', initAudioOnce);
+
             // Transport
             document.getElementById('btn-play').addEventListener('click', () => this.togglePlay());
             document.getElementById('btn-stop').addEventListener('click', () => this.stop());
@@ -2403,14 +2416,11 @@
                     this.dragPaintedSteps.add(s);
                     this.updateStepDisplay(ch, s);
                     // Play sound preview when activating a step
-                    if (this.dragPaintValue && !this.playing) {
-                        (async () => {
-                            await this.audio.init();
-                            if (this.audio.ctx.state === 'suspended') {
-                                await this.audio.ctx.resume();
-                            }
-                            this.audio.playChannel(ch, this.audio.ctx.currentTime + 0.01, stepData.velocity, stepData.note, stepData.open, 0.2);
-                        })();
+                    if (this.dragPaintValue && !this.playing && this.audio.initialized) {
+                        if (this.audio.ctx.state === 'suspended') {
+                            this.audio.ctx.resume();
+                        }
+                        this.audio.playChannel(ch, this.audio.ctx.currentTime + 0.01, stepData.velocity, stepData.note, stepData.open, 0.2);
                     }
                     stepEl.setPointerCapture(e.pointerId);
                     e.preventDefault();
