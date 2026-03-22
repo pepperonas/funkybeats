@@ -2404,9 +2404,13 @@
                     this.updateStepDisplay(ch, s);
                     // Play sound preview when activating a step
                     if (this.dragPaintValue && !this.playing) {
-                        this.audio.init().then(() => {
-                            this.audio.playChannel(ch, this.audio.ctx.currentTime, stepData.velocity, stepData.note, stepData.open, 0.2);
-                        });
+                        (async () => {
+                            await this.audio.init();
+                            if (this.audio.ctx.state === 'suspended') {
+                                await this.audio.ctx.resume();
+                            }
+                            this.audio.playChannel(ch, this.audio.ctx.currentTime + 0.01, stepData.velocity, stepData.note, stepData.open, 0.2);
+                        })();
                     }
                     stepEl.setPointerCapture(e.pointerId);
                     e.preventDefault();
