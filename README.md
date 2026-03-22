@@ -18,7 +18,7 @@
 ![Platform: Browser](https://img.shields.io/badge/Platform-Browser%20%2B%20Mobile-blueviolet?style=flat-square)
 ![Channels](https://img.shields.io/badge/Channels-11-ff6b35?style=flat-square)
 ![Synth Voices](https://img.shields.io/badge/Synth%20Voices-11-00ff87?style=flat-square)
-![Presets](https://img.shields.io/badge/Presets-20+-bb86fc?style=flat-square)
+![Presets](https://img.shields.io/badge/Presets-60+-bb86fc?style=flat-square)
 ![Effects](https://img.shields.io/badge/Effects-12-ff6bb5?style=flat-square)
 ![Patterns](https://img.shields.io/badge/Patterns-8-64ffda?style=flat-square)
 ![Steps](https://img.shields.io/badge/Steps-16%2F32%2F64-ffd93d?style=flat-square)
@@ -255,9 +255,11 @@ Channel Gains (x11)
 
 ---
 
-## Presets (20+)
+## Presets (60+)
 
-### Standard Patterns
+FunkyBeats ships with 60 production-ready presets across 12 categories. Each preset defines BPM, step patterns, note sequences, and per-step velocities. Presets are designed based on researched genre characteristics and serve as project starting points.
+
+### Standard Patterns (5)
 
 | Preset | BPM | Character |
 |--------|-----|-----------|
@@ -267,41 +269,93 @@ Channel Gains (x11)
 | Deep House | 122 | Walking snare pattern, layered bass line |
 | Drum & Bass | 174 | Syncopated kick, dense percussion, fast bass |
 
-### Phonk D Style (Jackin House / Funky House)
+### Artist Presets (15)
 
-Swing 20-30% recommended. Ghost kicks, syncopated bass answering the kick, polyrhythmic percussion.
+**Phonk D** (Jackin/Funky House, 123-126 BPM) -- Ghost kicks, syncopated bass, polyrhythmic percussion. Swing 20-30%.
 
-| Preset | BPM | Character |
-|--------|-----|-----------|
-| Jackin Groove | 126 | Ghost kicks on 3+11, bass avoids kick positions |
-| Filtered Disko | 124 | Off-beat disco hats, octave-pump bass, tambourine |
-| Bumpin Percussion | 125 | 6-hit conga polyrhythm, minimal deep bass |
-| Funky Stabs | 126 | Off-beat claps, chromatic bass lick, dense stabs |
-| Deep Jackin | 123 | Sparse, ghost kick on 11, warm pad chords |
+**Storken** (Nu Disco/Italo, 123-127 BPM) -- Major-key arpeggios, euphoric melodies, analog bleeps. Reverb 30-40%.
 
-### Storken Style (Nu Disco / Italo Disco)
+**Thomas Hammann** (Deep/Minimal House, 118-124 BPM) -- Extreme reduction, shuffle drums, acid bass. Swing 20-35%.
 
-Major-key tonality, analog arpeggios, euphoric melodies. Reverb 30-40% recommended.
+### Classic Disco (5)
 
 | Preset | BPM | Character |
 |--------|-----|-----------|
-| Lille Vals | 125 | 3-against-4 polymetric percussion, waltz feel |
-| Skogsdisko | 124 | Pentatonic walking bass, bleeping melody |
-| Italo Arpeggio | 127 | Full 16-step Bb major arpeggio, octave-pump bass |
-| Scandi Cosmic | 123 | Wide melodic intervals, lush moving pads |
-| Stupidisco | 127 | High-energy pop-disco, shaker on every 8th |
+| Donna | 126 | "I Feel Love" sequenced C-Dur bass arpeggio, lush pads |
+| Chic | 116 | "Le Freak" groove, Em walking bass, funky off-beat stabs |
+| String Heaven | 118 | Orchestral disco, big Am7 pad voicings, melodic bass |
+| Roller | 112 | Roller disco bounce, Gm octave-pump bass, organ comping |
+| Mirror Ball | 120 | Studio 54 full arrangement, Cm, lead + stabs + pad + bass |
 
-### Thomas Hammann Style (Deep / Minimal House)
-
-Swing 20-35% essential. Extreme reduction, shuffle drums, acid bass.
+### Italo Disco (5)
 
 | Preset | BPM | Character |
 |--------|-----|-----------|
-| 808 Mate (Workshop) | 122 | Chromatic acid bass, minimal chords, no percussion |
-| Liquid Night | 120 | Syncopated off-beat piano chords, deep Am bass |
-| Wah-Wah Boogie | 118 | Velocity-varied stabs simulate wah-wah guitar |
-| Frankfurt Deep | 119 | Ultra-minimal, bass and pad only |
-| Record Digger | 124 | Chicago kick, jazz Fm7 bass, ride-feel percussion |
+| Dolce Vita | 120 | Ryan Paris vibe, Am arpeggio bass, full 16-step lead sequence |
+| Synth Chase | 128 | Action-movie italo, Em driving arpeggio, stab accents |
+| Romance | 118 | Romantic italo, Dm pad-led, slow melody, soft drums |
+| Machine | 126 | Machine rhythm, even 16th hats, sequenced Cm bass + lead |
+| Cosmic | 122 | Cosmic italo, Em spacey pads, wide intervals, off-beat perc |
+
+### Chicago House (5)
+
+| Preset | BPM | Character |
+|--------|-----|-----------|
+| Warehouse | 124 | Frankie Knuckles Fm, raw drums, syncopated piano chord stabs |
+| Piano | 122 | Piano house, dense Cm chord pattern, walking bass |
+| Vocal | 126 | Vocal house Am, stab channel as rhythmic "vocal chops" |
+| Jack | 126 | Jackin house, syncopated kick with ghost hits, 16th hats |
+| Classic | 124 | Mr. Fingers "Can You Feel It", warm Dm pads, minimal drums |
+
+### Deep House (5)
+
+| Preset | BPM | Character |
+|--------|-----|-----------|
+| Midnight | 120 | Dm rolling bass, warm organ chords, atmospheric pad |
+| Jazz | 122 | Jazz house Am7, walking bass, ride perc, 7th chord voicings |
+| Ocean | 118 | Dub deep Em, ultra-minimal, sparse bass, lush pad |
+| Soul | 121 | Soulful Gm, organ comping, melodic lead, warm bass |
+| Rhodes | 120 | Rhodes piano Dm7, jazz chord voicings, subtle perc |
+
+### Acid House (5)
+
+| Preset | BPM | Character |
+|--------|-----|-----------|
+| 303 | 126 | Phuture "Acid Tracks", chromatic wriggling bass, minimal drums |
+| Warehouse | 124 | Warehouse acid, raw kick, off-beat clap, 303 chromatik |
+| Mental | 128 | Mental acid, fast 16-step Cm bass sequence, driving hats |
+| Deep | 122 | Deep acid, hypnotic, few notes with glide, dark Cm pad |
+| Electro | 130 | Electro acid, hard kick, snare rolls, aggressive chromatic bass |
+
+### Tech House (5)
+
+| Preset | BPM | Character |
+|--------|-----|-----------|
+| Groove | 126 | Groove tech Am, punchy kick, off-beat hats, conga perc |
+| Minimal | 128 | Ultra minimal Cm, only kick + hihat + bass, hypnotic |
+| Percussive | 127 | Heavy percussion Am, 6-hit conga polyrhythm, stab accents |
+| Dark | 130 | Dark tech Cm, ghost 16th hats, sparse lead stabs |
+| Funky | 125 | Funky tech Em, disco elements, chord stabs, boogie bass |
+
+### Funky House (5)
+
+| Preset | BPM | Character |
+|--------|-----|-----------|
+| Sample | 124 | Sample house Am, organ riff, off-beat funk bass |
+| Diva | 126 | Diva house Cm, big lead melody, disco octave-pump bass, stabs |
+| Bounce | 128 | Bouncy Em, octave bass pump, tambourine perc, chord stabs |
+| Filter | 124 | Filter house Cm, dense arrangement for filter sweep automation |
+| Classics | 122 | Nu-disco Dm, retro walking bass, off-beat stabs, warm pad |
+
+### Pure Funk (5)
+
+| Preset | BPM | Character |
+|--------|-----|-----------|
+| James | 100 | James Brown "The One", Em, beat-1 emphasis, syncopated kick, organ |
+| Parliament | 105 | Parliament/Funkadelic Gm, heavy syncopation, slap bass, synth lead |
+| EWF | 108 | Earth Wind & Fire Cm, horn-like stabs + chords, melodic bass |
+| Slap | 98 | Slap bass Am, octave jumps, ghost notes, 16th hats, organ comping |
+| Groove | 95 | Deep funk Dm, slow hypnotic groove, interlocking elements, organ + pad |
 
 ---
 
@@ -327,9 +381,9 @@ Three files, zero dependencies.
 
 ```
 funkybeats/
-  index.html    Structure, transport, tabs, effects rack (405 lines)
-  style.css     FL Studio dark theme, responsive, mobile (2387 lines)
-  app.js        Audio engine, sequencer, all features (5790 lines)
+  index.html    Structure, transport, tabs, effects rack
+  style.css     FL Studio dark theme, responsive, mobile
+  app.js        Audio engine, sequencer, 60 presets, all features
 ```
 
 ### Classes in app.js
