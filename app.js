@@ -1537,7 +1537,63 @@
         'hammann-liquid': { bpm: 120, steps: { 0: { on: [0,4,8,12], velocity: [0.75,0.75,0.75,0.75,0.75,0.75,0.75,0.75,0.75,0.75,0.75,0.75,0.75,0.75,0.75,0.75] }, 1: { on: [4,12], velocity: [,,,,0.45,,,,,,,,0.45] }, 2: { on: [2,6,10,14], velocity: [,,0.45,,,,0.45,,,,0.45,,,,0.45] }, 3: { on: [4,12], velocity: [,,,,0.4,,,,,,,,0.35] }, 4: { on: [7], velocity: [,,,,,,,0.35] }, 5: { on: [0,6,8,14], notes: [33,40,33,43] }, 6: { on: [3,6,11,14], notes: [69,72,69,67] }, 7: { on: [0,8], notes: [57,60] } } },
         'hammann-wahwah': { bpm: 118, steps: { 0: { on: [0,4,8,12] }, 1: { on: [4,12], velocity: [,,,,0.55,,,,,,,,0.55] }, 2: { on: [0,2,4,6,8,10,12,14], velocity: [0.4,0.4,0.65,0.4,0.4,0.4,0.65,0.4,0.4,0.4,0.65,0.4,0.4,0.4,0.65,0.4] }, 3: { on: [3,11], velocity: [,,,0.5,,,,,,,,0.5] }, 4: { on: [2,5,10,13], velocity: [,,0.5,,,0.4,,,,,0.5,,,0.4] }, 5: { on: [0,3,6,8,11,14], notes: [33,36,38,40,36,33] }, 6: { on: [1,3,5,7,9,11,13,15], notes: [69,69,72,69,69,69,72,69] } } },
         'hammann-ffm-deep': { bpm: 119, steps: { 0: { on: [0,4,8,12], velocity: [0.65,0.65,0.65,0.65,0.65,0.65,0.65,0.65,0.65,0.65,0.65,0.65,0.65,0.65,0.65,0.65] }, 1: { on: [12], velocity: [,,,,,,,,,,,,0.35] }, 2: { on: [6,14], velocity: [,,,,,,0.35,,,,,,,,0.35] }, 5: { on: [0,4,8,12], notes: [38,41,38,45] }, 7: { on: [0,4,8,12], notes: [62,65,69,65] } } },
-        'hammann-digger': { bpm: 124, steps: { 0: { on: [0,3,4,8,12], velocity: [0.8,0.5,0.8,0.8,0.8,0.8,0.8,0.8,0.5,0.8,0.8,0.8,0.8,0.8,0.8,0.8] }, 1: { on: [4,12] }, 2: { on: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], velocity: [0.6,0.25,0.45,0.25,0.6,0.25,0.45,0.25,0.6,0.25,0.45,0.25,0.6,0.25,0.45,0.25] }, 3: { on: [4], velocity: [,,,,0.7] }, 4: { on: [3,7,11], velocity: [,,,0.4,,,,0.35,,,,0.4] }, 5: { on: [0,3,6,8,11,14], notes: [41,44,36,39,41,44] }, 6: { on: [2,6,10,14], notes: [68,72,65,68] }, 7: { on: [0,8], notes: [60,63] } } }
+        'hammann-digger': { bpm: 124, steps: { 0: { on: [0,3,4,8,12], velocity: [0.8,0.5,0.8,0.8,0.8,0.8,0.8,0.8,0.5,0.8,0.8,0.8,0.8,0.8,0.8,0.8] }, 1: { on: [4,12] }, 2: { on: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], velocity: [0.6,0.25,0.45,0.25,0.6,0.25,0.45,0.25,0.6,0.25,0.45,0.25,0.6,0.25,0.45,0.25] }, 3: { on: [4], velocity: [,,,,0.7] }, 4: { on: [3,7,11], velocity: [,,,0.4,,,,0.35,,,,0.4] }, 5: { on: [0,3,6,8,11,14], notes: [41,44,36,39,41,44] }, 6: { on: [2,6,10,14], notes: [68,72,65,68] }, 7: { on: [0,8], notes: [60,63] } } },
+
+        // ---- Classic Disco ----
+        'disco-donna': { bpm: 126, steps: { 0: { on: [0,4,8,12] }, 2: { on: [2,6,10,14] }, 5: { on: [0,2,4,6,8,10,12,14], notes: [36,40,43,48,43,40,36,40] }, 7: { on: [0,8], notes: [60,67] } } },
+        'disco-chic': { bpm: 116, steps: { 0: { on: [0,4,8,12] }, 1: { on: [4,12] }, 2: { on: [0,2,4,6,8,10,12,14], velocity: [0.5,0.5,0.8,0.5,0.5,0.5,0.8,0.5,0.5,0.5,0.8,0.5,0.5,0.5,0.8,0.5] }, 3: { on: [4,12] }, 5: { on: [0,2,4,8,10,12], notes: [40,43,47,48,47,43] }, 9: { on: [3,7,11,15], notes: [76,79,76,72] } } },
+        'disco-string-heaven': { bpm: 118, steps: { 0: { on: [0,4,8,12] }, 1: { on: [4,12] }, 2: { on: [2,6,10,14] }, 3: { on: [4,12] }, 4: { on: [0,4,8,12], velocity: [0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4] }, 5: { on: [0,2,4,8,10,12], notes: [45,48,52,48,45,48] }, 7: { on: [0,4,8,12], notes: [57,60,64,60] } } },
+        'disco-roller': { bpm: 112, steps: { 0: { on: [0,4,8,12] }, 1: { on: [4,12] }, 2: { on: [0,2,4,6,8,10,12,14] }, 4: { on: [2,6,10,14] }, 5: { on: [0,2,4,6,8,10,12,14], notes: [43,55,46,55,43,55,46,55] }, 10: { on: [2,6,10,14], notes: [67,70,67,65] } } },
+        'disco-mirror-ball': { bpm: 120, steps: { 0: { on: [0,4,8,12] }, 1: { on: [4,12] }, 2: { on: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], velocity: [0.8,0.3,0.5,0.3,0.8,0.3,0.5,0.3,0.8,0.3,0.5,0.3,0.8,0.3,0.5,0.3] }, 3: { on: [4,12] }, 4: { on: [0,2,4,6,8,10,12,14], velocity: [0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4] }, 5: { on: [0,2,4,8,10,12], notes: [36,39,43,36,41,39] }, 6: { on: [2,5,10,13], notes: [72,75,79,75] }, 7: { on: [0,8], notes: [60,63] }, 9: { on: [3,7,11,15], notes: [75,79,75,72] } } },
+
+        // ---- Italo Disco ----
+        'italo-dolce-vita': { bpm: 120, steps: { 0: { on: [0,4,8,12] }, 1: { on: [4,12] }, 2: { on: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], velocity: [0.8,0.4,0.5,0.4,0.8,0.4,0.5,0.4,0.8,0.4,0.5,0.4,0.8,0.4,0.5,0.4] }, 5: { on: [0,2,4,6,8,10,12,14], notes: [45,57,52,57,45,57,52,57] }, 6: { on: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], notes: [69,72,76,72,69,72,76,72,69,72,76,72,69,72,76,72] }, 7: { on: [0,8], notes: [57,60] } } },
+        'italo-synth-chase': { bpm: 128, steps: { 0: { on: [0,4,8,12] }, 1: { on: [4,12] }, 2: { on: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15] }, 3: { on: [4,7,12,15] }, 5: { on: [0,2,4,6,8,10,12,14], notes: [40,52,40,52,40,52,40,52] }, 6: { on: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], notes: [76,79,71,79,76,79,71,79,76,79,71,79,76,79,71,79] }, 9: { on: [2,10], notes: [79,76] } } },
+        'italo-romance': { bpm: 118, steps: { 0: { on: [0,4,8,12], velocity: [0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5] }, 1: { on: [12], velocity: [,,,,,,,,,,,,0.4] }, 2: { on: [2,6,10,14] }, 5: { on: [0,2,4,8,10,12], notes: [38,41,45,41,38,41] }, 6: { on: [0,4,8,12], notes: [74,77,74,70] }, 7: { on: [0,4,8,12], notes: [62,65,69,65] } } },
+        'italo-machine': { bpm: 126, steps: { 0: { on: [0,4,8,12] }, 1: { on: [4,12] }, 2: { on: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15] }, 5: { on: [0,2,4,6,8,10,12,14], notes: [36,48,39,48,36,48,43,48] }, 6: { on: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], notes: [72,75,79,75,72,75,79,75,72,75,79,75,72,75,79,75] } } },
+        'italo-cosmic': { bpm: 122, steps: { 0: { on: [0,4,8,12], velocity: [0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5] }, 2: { on: [2,6,10,14] }, 3: { on: [7,15], velocity: [,,,,,,,0.3,,,,,,,,0.3] }, 4: { on: [3,11] }, 5: { on: [0,4,8,12], notes: [40,52,47,52] }, 6: { on: [2,5,10,13], notes: [76,79,83,79] }, 7: { on: [0,4,8,12], notes: [64,67,71,67] } } },
+
+        // ---- Chicago House ----
+        'chicago-warehouse': { bpm: 124, steps: { 0: { on: [0,4,8,12] }, 1: { on: [4,12] }, 2: { on: [2,6,10,14] }, 3: { on: [4,12], velocity: [,,,,0.4,,,,,,,,0.4] }, 5: { on: [0,4,8,12], notes: [41,53,41,48] }, 8: { on: [3,6,11,14], notes: [65,68,65,60] } } },
+        'chicago-piano': { bpm: 122, steps: { 0: { on: [0,4,8,12] }, 1: { on: [4,12] }, 2: { on: [0,2,4,6,8,10,12,14] }, 3: { on: [4,12] }, 5: { on: [0,2,4,8,10,12], notes: [36,39,43,48,43,39] }, 8: { on: [0,3,4,6,8,11,12,14], notes: [60,63,60,67,60,63,60,67] }, 7: { on: [0,8], notes: [60,63] } } },
+        'chicago-vocal': { bpm: 126, steps: { 0: { on: [0,4,8,12] }, 1: { on: [4,12] }, 2: { on: [0,2,4,6,8,10,12,14], velocity: [0.6,0.6,0.8,0.6,0.6,0.6,0.8,0.6,0.6,0.6,0.8,0.6,0.6,0.6,0.8,0.6] }, 3: { on: [4,12] }, 5: { on: [0,2,4,8,10,12], notes: [45,57,52,45,57,52] }, 9: { on: [1,3,5,9,11,13], notes: [69,72,69,69,72,69] } } },
+        'chicago-jack': { bpm: 126, steps: { 0: { on: [0,3,4,8,11,12], velocity: [0.8,,,0.5,0.8,,,,,,,0.5,0.8] }, 2: { on: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], velocity: [0.6,0.3,0.5,0.4,0.6,0.3,0.5,0.4,0.6,0.3,0.5,0.4,0.6,0.3,0.5,0.4] }, 3: { on: [4,12] }, 5: { on: [0,2,4,8,10,12], notes: [36,39,43,36,46,41] } } },
+        'chicago-classic': { bpm: 124, steps: { 0: { on: [0,4,8,12], velocity: [0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5] }, 2: { on: [2,6,10,14], velocity: [,,0.4,,,,0.4,,,,0.4,,,,0.4] }, 5: { on: [0,4,8,12], notes: [38,50,38,45] }, 7: { on: [0,4,8,12], notes: [62,65,69,65] } } },
+
+        // ---- Deep House ----
+        'deep-midnight': { bpm: 120, steps: { 0: { on: [0,4,8,12] }, 2: { on: [2,6,10,14] }, 5: { on: [0,2,4,8,10,12], notes: [38,41,45,38,41,45] }, 10: { on: [0,4,8,12], notes: [62,65,69,65] }, 7: { on: [0,8], notes: [62,69] } } },
+        'deep-jazz': { bpm: 122, steps: { 0: { on: [0,4,8,12] }, 1: { on: [4,12], velocity: [,,,,0.4,,,,,,,,0.4] }, 2: { on: [0,2,4,6,8,10,12,14], velocity: [0.6,0.3,0.5,0.4,0.6,0.3,0.5,0.4,0.6,0.3,0.5,0.4,0.6,0.3,0.5,0.4] }, 4: { on: [3,7,11], velocity: [,,,0.3,,,,0.3,,,,0.3] }, 5: { on: [0,2,4,8,10,12], notes: [45,48,52,55,52,48] }, 8: { on: [0,3,8,11], notes: [69,72,69,67] }, 7: { on: [0,8], notes: [57,60] } } },
+        'deep-ocean': { bpm: 118, steps: { 0: { on: [0,4,8,12], velocity: [0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5] }, 2: { on: [2,6,10,14], velocity: [,,0.3,,,,0.3,,,,0.3,,,,0.3] }, 5: { on: [0,4,8,12], notes: [40,52,40,47] }, 7: { on: [0,8], notes: [64,71] } } },
+        'deep-soul': { bpm: 121, steps: { 0: { on: [0,4,8,12] }, 1: { on: [4,12] }, 2: { on: [0,2,4,6,8,10,12,14] }, 3: { on: [4,12], velocity: [,,,,0.4,,,,,,,,0.4] }, 5: { on: [0,2,4,8,10,12], notes: [43,46,50,43,46,50] }, 6: { on: [2,6,10,14], notes: [67,70,74,70] }, 10: { on: [0,4,8,12], notes: [67,70,74,70] } } },
+        'deep-rhodes': { bpm: 120, steps: { 0: { on: [0,4,8,12] }, 2: { on: [2,6,10,14] }, 4: { on: [0,4,8,12], velocity: [0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3] }, 5: { on: [0,4,8,12], notes: [38,50,38,45] }, 8: { on: [3,6,11,14], notes: [65,69,65,62] }, 7: { on: [0,8], notes: [62,65] } } },
+
+        // ---- Acid House ----
+        'acid-303': { bpm: 126, steps: { 0: { on: [0,4,8,12] }, 2: { on: [2,6,10,14] }, 3: { on: [4] }, 5: { on: [0,2,4,6,8,10,12,14], notes: [36,37,39,36,34,36,39,41] } } },
+        'acid-warehouse': { bpm: 124, steps: { 0: { on: [0,4,8,12] }, 2: { on: [0,2,4,6,8,10,12,14] }, 3: { on: [4,12] }, 4: { on: [7,15] }, 5: { on: [0,2,4,6,8,10,12,14], notes: [36,39,41,39,36,34,36,39] } } },
+        'acid-mental': { bpm: 128, steps: { 0: { on: [0,4,8,12] }, 1: { on: [4,12] }, 2: { on: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15] }, 5: { on: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], notes: [36,39,43,48,43,39,36,39,43,48,43,39,36,39,43,48] } } },
+        'acid-deep': { bpm: 122, steps: { 0: { on: [0,4,8,12] }, 2: { on: [2,6,10,14], velocity: [,,0.4,,,,0.4,,,,0.4,,,,0.4] }, 5: { on: [0,4,8,12], notes: [36,39,36,43] }, 7: { on: [0,8], notes: [60,63] } } },
+        'acid-electro': { bpm: 130, steps: { 0: { on: [0,4,8,12] }, 1: { on: [4,8,12] }, 2: { on: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15] }, 3: { on: [4,12] }, 5: { on: [0,2,4,6,8,10,12,14], notes: [36,37,39,41,36,34,36,39] } } },
+
+        // ---- Tech House ----
+        'tech-groove': { bpm: 126, steps: { 0: { on: [0,4,8,12] }, 2: { on: [2,6,10,14] }, 3: { on: [4,12] }, 4: { on: [2,5,10,13] }, 5: { on: [0,4,8,12], notes: [45,57,45,52] } } },
+        'tech-minimal': { bpm: 128, steps: { 0: { on: [0,4,8,12] }, 2: { on: [2,6,10,14] }, 5: { on: [0,4,8,12], notes: [36,48,36,43] } } },
+        'tech-percussive': { bpm: 127, steps: { 0: { on: [0,4,8,12] }, 2: { on: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15] }, 3: { on: [4,12] }, 4: { on: [2,5,7,10,13,15] }, 5: { on: [0,4,8,12], notes: [45,57,45,52] }, 9: { on: [6,14], notes: [69,72] } } },
+        'tech-dark': { bpm: 130, steps: { 0: { on: [0,4,8,12] }, 1: { on: [4,12] }, 2: { on: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], velocity: [0.5,0.3,0.4,0.3,0.5,0.3,0.4,0.3,0.5,0.3,0.4,0.3,0.5,0.3,0.4,0.3] }, 3: { on: [4,12] }, 5: { on: [0,4,8,12], notes: [36,39,43,36] }, 6: { on: [6,14], notes: [75,72] } } },
+        'tech-funky': { bpm: 125, steps: { 0: { on: [0,4,8,12] }, 2: { on: [0,2,4,6,8,10,12,14], velocity: [0.5,0.5,0.8,0.5,0.5,0.5,0.8,0.5,0.5,0.5,0.8,0.5,0.5,0.5,0.8,0.5] }, 3: { on: [3,7,11,15] }, 4: { on: [0,4,8,12] }, 5: { on: [0,2,4,6,8,10,12,14], notes: [40,52,47,52,40,52,47,52] }, 8: { on: [2,6,10,14], notes: [64,67,71,67] }, 9: { on: [3,11], notes: [76,72] } } },
+
+        // ---- Funky House ----
+        'funky-sample': { bpm: 124, steps: { 0: { on: [0,4,8,12] }, 1: { on: [4,12] }, 2: { on: [0,2,4,6,8,10,12,14] }, 3: { on: [4,12] }, 5: { on: [0,2,4,6,8,10,12,14], notes: [45,57,52,57,45,57,52,57] }, 10: { on: [0,3,6,8,11,14], notes: [69,72,76,69,72,76] } } },
+        'funky-diva': { bpm: 126, steps: { 0: { on: [0,4,8,12] }, 1: { on: [4,12] }, 2: { on: [0,2,4,6,8,10,12,14], velocity: [0.6,0.6,0.8,0.6,0.6,0.6,0.8,0.6,0.6,0.6,0.8,0.6,0.6,0.6,0.8,0.6] }, 3: { on: [4,12] }, 5: { on: [0,2,4,6,8,10,12,14], notes: [36,48,39,48,36,48,43,48] }, 6: { on: [0,2,4,6,8,10,12,14], notes: [72,75,79,75,72,75,79,75] }, 9: { on: [3,7,11,15], notes: [75,79,75,72] } } },
+        'funky-bounce': { bpm: 128, steps: { 0: { on: [0,4,8,12] }, 2: { on: [2,6,10,14] }, 4: { on: [0,2,4,6,8,10,12,14], velocity: [0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4] }, 5: { on: [0,2,4,6,8,10,12,14], notes: [40,52,40,52,40,52,40,52] }, 8: { on: [2,6,10,14], notes: [64,67,71,67] } } },
+        'funky-filter': { bpm: 124, steps: { 0: { on: [0,4,8,12] }, 1: { on: [4,12] }, 2: { on: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15] }, 3: { on: [3,7,11,15] }, 4: { on: [2,10] }, 5: { on: [0,2,4,6,8,10,12,14], notes: [36,36,39,39,43,43,46,46] }, 6: { on: [0,2,4,6,8,10,12,14], notes: [72,75,79,75,72,75,79,75] }, 8: { on: [0,4,8,12], notes: [60,63,67,63] } } },
+        'funky-classics': { bpm: 122, steps: { 0: { on: [0,4,8,12] }, 1: { on: [4,12] }, 2: { on: [2,6,10,14] }, 3: { on: [4,12] }, 4: { on: [0,2,4,6,8,10,12,14], velocity: [0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4,0.4] }, 5: { on: [0,2,4,8,10,12], notes: [38,41,45,50,45,41] }, 9: { on: [3,7,11,15], notes: [65,69,65,62] }, 7: { on: [0,8], notes: [62,65] } } },
+
+        // ---- Pure Funk ----
+        'funk-james': { bpm: 100, steps: { 0: { on: [0,4,7,8,12], velocity: [0.9,,,, 0.8,,,0.4,0.9,,,,0.8] }, 1: { on: [2,4,10,12], velocity: [,,0.2,,0.8,,,,,,0.2,,0.8] }, 2: { on: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], velocity: [0.8,0.3,0.5,0.4,0.8,0.3,0.6,0.4,0.8,0.3,0.5,0.4,0.8,0.3,0.6,0.4] }, 4: { on: [3,7,11] }, 5: { on: [0,2,4,8,10,12], notes: [40,43,40,52,40,43] }, 10: { on: [1,3,5,7,9,11,13,15], notes: [64,64,67,64,64,64,67,64] } } },
+        'funk-parliament': { bpm: 105, steps: { 0: { on: [0,3,4,8,11,12] }, 1: { on: [4,12] }, 2: { on: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], velocity: [0.7,0.3,0.5,0.3,0.7,0.3,0.5,0.3,0.7,0.3,0.5,0.3,0.7,0.3,0.5,0.3] }, 3: { on: [4,12] }, 4: { on: [2,5,10,13] }, 5: { on: [0,2,4,8,10,12], notes: [43,55,46,43,50,55] }, 6: { on: [2,6,10,14], notes: [67,70,74,70] } } },
+        'funk-ewf': { bpm: 108, steps: { 0: { on: [0,4,6,8,12,14] }, 1: { on: [4,12] }, 2: { on: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15] }, 3: { on: [4,12] }, 4: { on: [2,5,10,13] }, 5: { on: [0,2,4,8,10,12], notes: [36,39,43,48,43,39] }, 8: { on: [2,6,10,14], notes: [60,63,67,63] }, 9: { on: [3,11], notes: [75,72] } } },
+        'funk-slap': { bpm: 98, steps: { 0: { on: [0,3,4,8,12], velocity: [0.8,,,0.4,0.8,,,,,,,,,0.8] }, 1: { on: [4,6,10,12], velocity: [,,,,0.8,,0.2,,,,0.2,,0.8] }, 2: { on: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15] }, 4: { on: [2,5,10,13] }, 5: { on: [0,2,4,6,8,10,12,14], notes: [45,57,48,57,45,57,52,57] }, 10: { on: [0,3,6,8,11,14], notes: [69,72,76,69,72,76] } } },
+        'funk-groove': { bpm: 95, steps: { 0: { on: [0,4,7,8,12] }, 1: { on: [2,4,10,12], velocity: [,,0.2,,0.8,,,,,,0.2,,0.8] }, 2: { on: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15] }, 4: { on: [3,7,11] }, 5: { on: [0,2,4,8,10,12], notes: [38,41,38,50,45,41] }, 10: { on: [0,8], notes: [62,65] }, 7: { on: [0,8], notes: [62,69] } } }
     };
 
     // ---- Phase 5: Preset Metadata (separate from pattern data) ----
@@ -1562,6 +1618,62 @@
         'hammann-wahwah': { artist: 'T. Hammann', tags: ['boogie', 'disco', 'funk'], description: 'Wah-wah guitar stabs with boogie bass' },
         'hammann-ffm-deep': { artist: 'T. Hammann', tags: ['deep', 'minimal', 'ambient'], description: 'Ultra-reduced Frankfurt deep house' },
         'hammann-digger': { artist: 'T. Hammann', tags: ['chicago', 'jazz', 'eclectic'], description: 'Eclectic jazz-funk meets Chicago house' },
+
+        // Classic Disco
+        'disco-donna': { artist: 'Classic Disco', tags: ['disco', 'classic', 'donna-summer'], description: 'I Feel Love inspired sequenced bass arpeggio' },
+        'disco-chic': { artist: 'Classic Disco', tags: ['disco', 'classic', 'chic'], description: 'Le Freak funky groove with walking bass' },
+        'disco-string-heaven': { artist: 'Classic Disco', tags: ['disco', 'orchestral', 'strings'], description: 'Orchestral disco with big string pads' },
+        'disco-roller': { artist: 'Classic Disco', tags: ['disco', 'roller', 'funk'], description: 'Roller disco with bouncy octave bass pump' },
+        'disco-mirror-ball': { artist: 'Classic Disco', tags: ['disco', 'studio54', 'full'], description: 'Studio 54 full arrangement with syncopated bass' },
+
+        // Italo Disco
+        'italo-dolce-vita': { artist: 'Italo Disco', tags: ['italo', 'arpeggio', 'synth'], description: 'Ryan Paris inspired synth arpeggio bliss' },
+        'italo-synth-chase': { artist: 'Italo Disco', tags: ['italo', 'action', 'driving'], description: 'Action movie chase with driving arpeggios' },
+        'italo-romance': { artist: 'Italo Disco', tags: ['italo', 'romantic', 'soft'], description: 'Romantic italo with gentle melodies' },
+        'italo-machine': { artist: 'Italo Disco', tags: ['italo', 'machine', 'sequencer'], description: 'Machine-driven sequencer rhythm' },
+        'italo-cosmic': { artist: 'Italo Disco', tags: ['italo', 'cosmic', 'space'], description: 'Cosmic italo with spacey lead melody' },
+
+        // Chicago House
+        'chicago-warehouse': { artist: 'Chicago House', tags: ['chicago', 'warehouse', 'classic'], description: 'Frankie Knuckles warehouse piano stabs' },
+        'chicago-piano': { artist: 'Chicago House', tags: ['chicago', 'piano', 'house'], description: 'Dense piano house with walking bass' },
+        'chicago-vocal': { artist: 'Chicago House', tags: ['chicago', 'vocal', 'house'], description: 'Vocal house with rhythmic chop stabs' },
+        'chicago-jack': { artist: 'Chicago House', tags: ['chicago', 'jackin', 'raw'], description: 'Raw jackin house with syncopated kicks' },
+        'chicago-classic': { artist: 'Chicago House', tags: ['chicago', 'deep', 'classic'], description: 'Mr. Fingers style minimal deep house' },
+
+        // Deep House
+        'deep-midnight': { artist: 'Deep House', tags: ['deep', 'midnight', 'organ'], description: 'Midnight deep house with organ voicing' },
+        'deep-jazz': { artist: 'Deep House', tags: ['deep', 'jazz', 'house'], description: 'Jazz house with walking bass and chord voicings' },
+        'deep-ocean': { artist: 'Deep House', tags: ['deep', 'dub', 'minimal'], description: 'Dub-influenced deep with lush pads' },
+        'deep-soul': { artist: 'Deep House', tags: ['deep', 'soulful', 'vocal'], description: 'Soulful deep house with lead melody' },
+        'deep-rhodes': { artist: 'Deep House', tags: ['deep', 'rhodes', 'jazz'], description: 'Rhodes piano deep house with jazz voicings' },
+
+        // Acid House
+        'acid-303': { artist: 'Acid House', tags: ['acid', '303', 'classic'], description: 'Phuture style wriggling 303 acid line' },
+        'acid-warehouse': { artist: 'Acid House', tags: ['acid', 'warehouse', 'raw'], description: 'Warehouse acid with percussive accents' },
+        'acid-mental': { artist: 'Acid House', tags: ['acid', 'mental', 'fast'], description: 'Mental acid with full 16-step bass sequence' },
+        'acid-deep': { artist: 'Acid House', tags: ['acid', 'deep', 'minimal'], description: 'Deep acid with dark Cm pads' },
+        'acid-electro': { artist: 'Acid House', tags: ['acid', 'electro', 'aggressive'], description: 'Aggressive electro acid with driving hats' },
+
+        // Tech House
+        'tech-groove': { artist: 'Tech House', tags: ['tech', 'groove', 'percussion'], description: 'Groove tech with conga percussion' },
+        'tech-minimal': { artist: 'Tech House', tags: ['tech', 'minimal', 'hypnotic'], description: 'Ultra minimal hypnotic tech house' },
+        'tech-percussive': { artist: 'Tech House', tags: ['tech', 'percussion', 'heavy'], description: 'Percussion heavy tech with stab accents' },
+        'tech-dark': { artist: 'Tech House', tags: ['tech', 'dark', 'driving'], description: 'Dark tech house with ghost hat dynamics' },
+        'tech-funky': { artist: 'Tech House', tags: ['tech', 'funky', 'bouncy'], description: 'Funky tech with off-beat claps and chord stabs' },
+
+        // Funky House
+        'funky-sample': { artist: 'Funky House', tags: ['funky', 'sample', 'organ'], description: 'Sample house with organ riff' },
+        'funky-diva': { artist: 'Funky House', tags: ['funky', 'diva', 'disco'], description: 'Diva house with big lead melody' },
+        'funky-bounce': { artist: 'Funky House', tags: ['funky', 'bouncy', 'energy'], description: 'Bouncy house with octave bass pump' },
+        'funky-filter': { artist: 'Funky House', tags: ['funky', 'filter', 'arpeggio'], description: 'Filter house with climbing bass and lead arp' },
+        'funky-classics': { artist: 'Funky House', tags: ['funky', 'nu-disco', 'classic'], description: 'Nu disco with walking bass and off-beat stabs' },
+
+        // Pure Funk
+        'funk-james': { artist: 'Pure Funk', tags: ['funk', 'james-brown', 'the-one'], description: 'James Brown The One with emphasis on beat one' },
+        'funk-parliament': { artist: 'Pure Funk', tags: ['funk', 'parliament', 'p-funk'], description: 'Parliament P-Funk with syncopated kicks' },
+        'funk-ewf': { artist: 'Pure Funk', tags: ['funk', 'ewf', 'horns'], description: 'Earth Wind and Fire with horn chord stabs' },
+        'funk-slap': { artist: 'Pure Funk', tags: ['funk', 'slap-bass', 'groove'], description: 'Slap bass funk with octave pops' },
+        'funk-groove': { artist: 'Pure Funk', tags: ['funk', 'deep', 'groove'], description: 'Deep funk groove with organ and atmosphere' },
     };
 
     // ---- Main Application ----
