@@ -252,6 +252,12 @@
 
         async init() {
             if (this.initialized) return;
+            if (this._initPromise) return this._initPromise;
+            this._initPromise = this._doInit();
+            return this._initPromise;
+        }
+
+        async _doInit() {
             this.ctx = new (window.AudioContext || window.webkitAudioContext)();
 
             // Create noise buffer for snare/hihat/clap
@@ -2417,17 +2423,7 @@
                     this.updateStepDisplay(ch, s);
                     // Play sound preview when activating a step
                     if (this.dragPaintValue && !this.playing) {
-                        const previewCh = ch;
-                        const previewVel = stepData.velocity;
-                        const previewNote = stepData.note;
-                        const previewOpen = stepData.open;
-                        this.audio.init().then(() => {
-                            if (this.audio.ctx.state === 'suspended') {
-                                return this.audio.ctx.resume();
-                            }
-                        }).then(() => {
-                            this.audio.playChannel(previewCh, this.audio.ctx.currentTime, previewVel, previewNote, previewOpen, 0.2);
-                        });
+                        this.previewStepSound(ch, stepData);
                     }
                     stepEl.setPointerCapture(e.pointerId);
                     e.preventDefault();
@@ -5788,6 +5784,26 @@
         setStatus(msg) {
             const statusEl = document.getElementById('status-left');
             if (statusEl) statusEl.textContent = msg;
+        }
+
+        // Preview sound when placing a step in the sequencer
+        async previewStepSound(channelIdx, stepData) {
+            try {
+                await this.audio.init();
+                if (this.audio.ctx.state === 'suspended') {
+                    await this.audio.ctx.resume();
+                }
+                this.audio.playChannel(
+                    channelIdx,
+                    this.audio.ctx.currentTime,
+                    stepData.velocity || 0.8,
+                    stepData.note || 0,
+                    stepData.open || false,
+                    0.2
+                );
+            } catch (err) {
+                // silently ignore audio errors during preview
+            }
         }
     }
 
