@@ -2,6 +2,12 @@
 
 ### Browser-based Electronic Music Production Studio
 
+<p align="center">
+  <img src="funkybeats-w1024_clean.png" alt="FunkyBeats DAW Interface" width="1024">
+</p>
+
+<p align="center">
+
 ![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=flat-square&logo=html5&logoColor=white)
 ![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=flat-square&logo=css3&logoColor=white)
 ![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-F7DF1E?style=flat-square&logo=javascript&logoColor=black)
@@ -14,8 +20,25 @@
 ![Synth Voices](https://img.shields.io/badge/Synth%20Voices-11-00ff87?style=flat-square)
 ![Presets](https://img.shields.io/badge/Presets-20+-bb86fc?style=flat-square)
 ![Effects](https://img.shields.io/badge/Effects-12-ff6bb5?style=flat-square)
+![Patterns](https://img.shields.io/badge/Patterns-8-64ffda?style=flat-square)
+![Steps](https://img.shields.io/badge/Steps-16%2F32%2F64-ffd93d?style=flat-square)
+![Automation](https://img.shields.io/badge/Automation-Lanes-4fc3f7?style=flat-square)
+![Sidechain](https://img.shields.io/badge/Sidechain-Pump-ff4757?style=flat-square)
+![Undo](https://img.shields.io/badge/Undo%2FRedo-50%20Levels-8888a0?style=flat-square)
+![Save](https://img.shields.io/badge/Save-localStorage%20%2B%20JSON-222240?style=flat-square)
+![Export](https://img.shields.io/badge/Export-WAV%2044.1kHz-00b4d8?style=flat-square)
+![Mobile](https://img.shields.io/badge/Mobile-Touch%20Optimized-00ff87?style=flat-square)
+![Sample Rate](https://img.shields.io/badge/Sample%20Rate-44.1kHz-ff6b35?style=flat-square)
+![Bit Depth](https://img.shields.io/badge/Bit%20Depth-16bit-ffd93d?style=flat-square)
+![Bus Routing](https://img.shields.io/badge/Bus-Drums%20%2B%20Synths-bb86fc?style=flat-square)
+![EQ](https://img.shields.io/badge/EQ-3%20Band%20Per%20Channel-4fc3f7?style=flat-square)
+![Glide](https://img.shields.io/badge/Glide-303%20Style-00ff87?style=flat-square)
+![Chord Types](https://img.shields.io/badge/Chords-Maj%2FMin%2F7th%2Fmin7-ff6bb5?style=flat-square)
+![Samples](https://img.shields.io/badge/Samples-WAV%2FMP3%20Import-64ffda?style=flat-square)
 ![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-ff69b4?style=flat-square)
 ![Made with Love](https://img.shields.io/badge/Made%20with-Love-red?style=flat-square)
+
+</p>
 
 ---
 
