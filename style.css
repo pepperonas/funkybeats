@@ -2203,19 +2203,23 @@ input[type="range"]:hover::-webkit-slider-thumb {
         background: var(--bg-panel);
     }
     .tab {
-        padding: 10px 4px;
-        font-size: 0;
+        padding: 10px 2px;
+        font-size: 0 !important;
         flex: 1;
         text-align: center;
         min-height: 48px;
         display: flex;
         align-items: center;
         justify-content: center;
+        line-height: 0;
+        overflow: hidden;
     }
     .tab::after {
-        font-size: 10px;
-        letter-spacing: 0.5px;
+        font-size: 9px !important;
+        letter-spacing: 0.3px;
         font-weight: 700;
+        display: block;
+        line-height: normal;
     }
     .tab[data-short="SEQ"]::after { content: "SEQ"; }
     .tab[data-short="PIANO"]::after { content: "PIANO"; }
@@ -2224,7 +2228,12 @@ input[type="range"]:hover::-webkit-slider-thumb {
     .tab[data-short="AUTO"]::after { content: "AUTO"; }
     .tab[data-short="SONG"]::after { content: "SONG"; }
     #app {
-        padding-bottom: 52px;
+        padding-bottom: 56px;
+    }
+
+    /* Prevent effects/status bar from being hidden behind fixed tab bar */
+    #effects-rack {
+        margin-bottom: 0;
     }
 
     /* Transport collapse */
@@ -2327,17 +2336,52 @@ input[type="range"]:hover::-webkit-slider-thumb {
 @media (max-width: 480px) {
     .hamburger-btn { display: flex; }
     .logo-text { display: none; }
+
+    /* Compact transport — 2 rows max */
+    #transport { padding: 6px 8px; gap: 6px; }
+    .transport-controls { gap: 4px; }
+    .transport-right { display: none; } /* All in hamburger drawer */
+    .bpm-control label, .swing-control label,
+    .steps-control label, .mode-control label,
+    .pattern-selector label { display: none; }
     .pattern-btns { gap: 2px; }
-    .pattern-btn { width: 28px; height: 32px; font-size: 11px; }
+    .pattern-btn { width: 30px; height: 34px; font-size: 11px; min-width: 30px; min-height: 34px; }
     .pattern-tools { display: none; }
     .save-tools { display: none; }
-    .preset-selector select { display: none; }
-    .preset-selector label { display: none; }
-    .transport-btn { min-width: 44px; min-height: 44px; }
-    .undo-redo-btn { min-width: 36px; min-height: 36px; }
-    .seq-step { width: 32px; height: 36px; }
-    .seq-channel-name { font-size: 9px; min-width: 40px; }
-    .seq-channel-info { min-width: 60px; gap: 4px; }
-    #bpm { width: 48px; }
-    .knob-range { width: 50px; }
+    .transport-btn { min-width: 40px; min-height: 40px; width: 40px; height: 40px; }
+    .undo-redo-btn { min-width: 32px; min-height: 32px; }
+    .met-btn, .tap-btn { font-size: 8px !important; padding: 0 6px !important; }
+    #bpm { width: 44px; font-size: 13px; }
+    .knob-range { width: 44px; }
+    #swing-val { display: none; }
+    .steps-control { display: none; } /* In hamburger */
+    .mode-control { display: none; } /* In hamburger */
+
+    /* Sequencer — compact rows */
+    .seq-step { width: 34px; height: 34px; }
+    .seq-channel-name { font-size: 9px; min-width: 36px; }
+    .seq-channel-info { min-width: 50px; gap: 3px; padding-right: 4px; }
+    .seq-channel-color { width: 3px; height: 28px; }
+    .seq-channel-btns { display: none; }
+    .seq-row { padding: 1px 0; gap: 2px; }
+    .sequencer-grid { gap: 1px; }
+    .seq-step-group { gap: 2px; }
+    .seq-step-group + .seq-step-group { margin-left: 3px; }
+    .panel { padding: 6px; }
+
+    /* Effects — compact */
+    #effects-rack { padding: 6px 8px; }
+    #effects-rack h3 { font-size: 9px; margin-bottom: 4px; }
+    .effects-grid { gap: 4px 8px; }
+    .effect-label { font-size: 8px; min-width: 50px; }
+    .fx-range { width: 60px; }
+    .fx-val { font-size: 9px; min-width: 28px; }
+
+    /* Visualizer even smaller */
+    #visualizer-bar { padding: 3px 8px; }
+    #visualizer { height: 30px; }
+
+    /* Tab bar — compact */
+    .tab { min-height: 42px; }
+    .tab::after { font-size: 9px; }
 }
