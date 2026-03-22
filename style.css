@@ -2020,3 +2020,324 @@ input[type="range"]:hover::-webkit-slider-thumb {
     color: var(--accent-orange);
     font-weight: 600;
 }
+
+/* ============================================
+   Phase 6: Mobile Optimization
+   Samsung Galaxy S24 Ultra (412x915 CSS px)
+   ============================================ */
+
+/* ---- Hamburger Button (hidden on desktop, shown at 480px) ---- */
+.hamburger-btn {
+    display: none;
+    font-size: 20px !important;
+    width: auto !important;
+    padding: 0 10px !important;
+}
+
+/* ---- Mobile Drawer ---- */
+.mobile-drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: var(--bg-panel);
+    z-index: 1000;
+    padding: 16px;
+    border-bottom: 2px solid var(--accent-orange);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transform: translateY(-100%);
+    transition: transform 0.3s ease;
+}
+.mobile-drawer.open {
+    transform: translateY(0);
+}
+.mobile-drawer .drawer-section {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+.mobile-drawer .drawer-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    letter-spacing: 1px;
+    width: 100%;
+}
+.mobile-drawer .drawer-close {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 24px;
+    cursor: pointer;
+}
+.mobile-drawer-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 999;
+}
+.mobile-drawer-overlay.hidden {
+    display: none;
+}
+
+/* ---- Mobile Piano Keyboard ---- */
+.mobile-piano {
+    position: fixed;
+    bottom: 52px;
+    left: 0;
+    right: 0;
+    height: 100px;
+    background: var(--bg-panel);
+    border-top: 1px solid var(--border);
+    z-index: 850;
+    display: flex;
+    align-items: flex-end;
+    overflow: hidden;
+}
+.mobile-piano.hidden {
+    display: none;
+}
+.mobile-piano-key {
+    flex: 1;
+    height: 80px;
+    background: #2a2a40;
+    border: 1px solid var(--border);
+    border-radius: 0 0 4px 4px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 4px;
+    font-size: 9px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+.mobile-piano-key:active {
+    background: var(--accent-orange);
+    color: #000;
+}
+.mobile-piano-key.black {
+    height: 55px;
+    background: #111;
+    margin: 0 -6px;
+    z-index: 1;
+    flex: 0 0 28px;
+    border-radius: 0 0 3px 3px;
+}
+.mobile-piano-key.black:active {
+    background: var(--accent-orange);
+}
+.mobile-piano-octave-btn {
+    width: 32px;
+    height: 80px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* ---- Floating Play Button ---- */
+.fab-play {
+    position: fixed;
+    bottom: 64px;
+    right: 16px;
+    z-index: 800;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    color: #000;
+    border: none;
+    font-size: 22px;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0,255,135,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+.fab-play.playing {
+    background: var(--accent-red);
+}
+.fab-play:active {
+    transform: scale(0.9);
+}
+
+/* ---- Desktop: Hide mobile-only elements ---- */
+@media (min-width: 769px) {
+    .fab-play { display: none; }
+    .mobile-piano { display: none !important; }
+    .hamburger-btn { display: none; }
+    .mobile-drawer { display: none !important; }
+    .mobile-drawer-overlay { display: none !important; }
+}
+
+/* ============================================
+   Tablet / Large Phone (max-width: 768px)
+   ============================================ */
+@media (max-width: 768px) {
+    /* Tab bar -> fixed bottom */
+    #tab-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 900;
+        border-top: 2px solid var(--border);
+        border-bottom: none;
+        background: var(--bg-panel);
+    }
+    .tab {
+        padding: 10px 4px;
+        font-size: 0;
+        flex: 1;
+        text-align: center;
+        min-height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .tab::after {
+        font-size: 10px;
+        letter-spacing: 0.5px;
+        font-weight: 700;
+    }
+    .tab[data-short="SEQ"]::after { content: "SEQ"; }
+    .tab[data-short="PIANO"]::after { content: "PIANO"; }
+    .tab[data-short="MIX"]::after { content: "MIX"; }
+    .tab[data-short="SYNTH"]::after { content: "SYNTH"; }
+    .tab[data-short="AUTO"]::after { content: "AUTO"; }
+    .tab[data-short="SONG"]::after { content: "SONG"; }
+    #app {
+        padding-bottom: 52px;
+    }
+
+    /* Transport collapse */
+    .transport-divider { display: none; }
+    .transport-controls, .transport-right {
+        flex-wrap: wrap;
+        width: 100%;
+        gap: 6px;
+    }
+    .transport-right {
+        margin-left: 0;
+        margin-top: 4px;
+    }
+
+    /* Effects rack 2-column */
+    .effects-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+    .effect-unit { width: 100%; }
+
+    /* Visualizer shrink */
+    #visualizer { height: 40px; }
+    #step-indicators { display: none; }
+
+    /* Touch targets */
+    input[type="range"]::-webkit-slider-thumb { width: 24px; height: 24px; }
+    input[type="range"]::-moz-range-thumb { width: 24px; height: 24px; }
+    .small-btn { min-height: 36px; min-width: 36px; padding: 6px 10px; }
+
+    /* Status bar simplify */
+    #status-right { font-size: 0; }
+    #status-right .midi-indicator,
+    #status-right .status-help-btn { font-size: 10px; }
+
+    /* Piano roll adjustments */
+    .pianoroll-toolbar { flex-wrap: wrap; gap: 6px; }
+    .keyboard-hint { display: none; }
+    .pianoroll-divider { display: none; }
+    .piano-keys { width: 32px; }
+    .piano-key { font-size: 7px; height: 18px; }
+    #pianoroll-canvas { touch-action: none; }
+    #automation-canvas { touch-action: none; }
+
+    /* Sequencer horizontal scroll */
+    .seq-steps {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        flex-shrink: 0;
+    }
+    .seq-channel-info { min-width: 80px; }
+
+    /* Mixer vertical on mobile */
+    .mixer-channels {
+        flex-direction: column;
+        overflow-x: visible;
+    }
+    .mixer-channel {
+        flex-direction: row;
+        min-width: 100%;
+        padding: 8px 12px;
+        gap: 10px;
+        align-items: center;
+    }
+    .mixer-channel.bus-channel { flex-direction: row; }
+    .mixer-fader-container { height: auto; width: 100px; }
+    .mixer-fader { transform: none; width: 100px; }
+    .mixer-vu { width: 60px; height: 8px; }
+    .mixer-vu-fill { width: 0%; height: 100%; bottom: auto; left: 0; }
+
+    /* Synth editor wrap */
+    .synth-channel-btns { gap: 3px; }
+    .synth-ch-btn { padding: 4px 8px; font-size: 10px; min-height: 36px; }
+    .synth-params { gap: 10px; padding: 10px; }
+    .synth-param-group { min-width: 70px; }
+    .synth-range { width: 70px; }
+    .sidechain-controls { flex-wrap: wrap; gap: 12px; }
+
+    /* Modals as bottom sheets */
+    .preset-browser-overlay .preset-browser-card,
+    .help-modal-overlay .help-modal-card {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        max-width: 100%;
+        width: 100%;
+        border-radius: 16px 16px 0 0;
+        max-height: 80vh;
+        margin: 0;
+    }
+    .context-menu { min-width: 200px; }
+    .context-menu-item { padding: 12px 16px; font-size: 14px; min-height: 44px; }
+}
+
+/* ============================================
+   Phone Specific (max-width: 480px)
+   ============================================ */
+@media (max-width: 480px) {
+    .hamburger-btn { display: flex; }
+    .logo-text { display: none; }
+    .pattern-btns { gap: 2px; }
+    .pattern-btn { width: 28px; height: 32px; font-size: 11px; }
+    .pattern-tools { display: none; }
+    .save-tools { display: none; }
+    .preset-selector select { display: none; }
+    .preset-selector label { display: none; }
+    .transport-btn { min-width: 44px; min-height: 44px; }
+    .undo-redo-btn { min-width: 36px; min-height: 36px; }
+    .seq-step { width: 32px; height: 36px; }
+    .seq-channel-name { font-size: 9px; min-width: 40px; }
+    .seq-channel-info { min-width: 60px; gap: 4px; }
+    #bpm { width: 48px; }
+    .knob-range { width: 50px; }
+}

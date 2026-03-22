@@ -39,6 +39,38 @@
     // QWERTY keyboard piano mapping
     const PIANO_KEYS = { 'z':0,'s':1,'x':2,'d':3,'c':4,'v':5,'g':6,'b':7,'h':8,'n':9,'j':10,'m':11 };
 
+    // ---- Mobile Detection Helpers ----
+    const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
+    const isTouchDevice = () => 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+    // ---- Long-press detection utility ----
+    function addLongPress(element, callback, duration) {
+        duration = duration || 600;
+        let timer = null;
+        let startX = 0;
+        let startY = 0;
+        element.addEventListener('pointerdown', function(e) {
+            startX = e.clientX;
+            startY = e.clientY;
+            timer = setTimeout(function() {
+                timer = null;
+                callback(e);
+            }, duration);
+        });
+        element.addEventListener('pointermove', function(e) {
+            if (timer && (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10)) {
+                clearTimeout(timer);
+                timer = null;
+            }
+        });
+        element.addEventListener('pointerup', function() {
+            if (timer) { clearTimeout(timer); timer = null; }
+        });
+        element.addEventListener('pointerleave', function() {
+            if (timer) { clearTimeout(timer); timer = null; }
+        });
+    }
+
     // ---- DOM Helper (safe, no innerHTML) ----
     function el(tag, attrs, children) {
         const elem = document.createElement(tag);
@@ -1638,6 +1670,7 @@
             this.loadAutoSave();
             this.startVisualizer();
             this.initMIDI();
+            this.initMobile();
             this.setStatus('Ready');
         }
 
@@ -2338,6 +2371,7 @@
                     if (panel) panel.classList.add('active');
                     if (tab.dataset.tab === 'pianoroll') this.drawPianoRoll();
                     if (tab.dataset.tab === 'automation') this.drawAutomation();
+                    this.updateMobilePianoVisibility();
                 });
             });
 
@@ -2734,10 +2768,10 @@
 
             // Piano roll canvas mouse events for note duration drag and velocity editing
             if (this.pianoCanvas) {
-                this.pianoCanvas.addEventListener('mousedown', (e) => this.handlePianoRollMouseDown(e));
-                this.pianoCanvas.addEventListener('mousemove', (e) => this.handlePianoRollMouseMove(e));
-                this.pianoCanvas.addEventListener('mouseup', (e) => this.handlePianoRollMouseUp(e));
-                this.pianoCanvas.addEventListener('mouseleave', (e) => this.handlePianoRollMouseUp(e));
+                this.pianoCanvas.addEventListener('pointerdown', (e) => this.handlePianoRollMouseDown(e));
+                this.pianoCanvas.addEventListener('pointermove', (e) => this.handlePianoRollMouseMove(e));
+                this.pianoCanvas.addEventListener('pointerup', (e) => this.handlePianoRollMouseUp(e));
+                this.pianoCanvas.addEventListener('pointerleave', (e) => this.handlePianoRollMouseUp(e));
                 this.pianoCanvas.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
                     this.handlePianoRollContextMenu(e);
@@ -2785,10 +2819,10 @@
             }
 
             if (this.automationCanvas) {
-                this.automationCanvas.addEventListener('mousedown', (e) => this.handleAutomationMouseDown(e));
-                this.automationCanvas.addEventListener('mousemove', (e) => this.handleAutomationMouseMove(e));
-                this.automationCanvas.addEventListener('mouseup', () => { this.automationDragging = false; });
-                this.automationCanvas.addEventListener('mouseleave', () => { this.automationDragging = false; });
+                this.automationCanvas.addEventListener('pointerdown', (e) => this.handleAutomationMouseDown(e));
+                this.automationCanvas.addEventListener('pointermove', (e) => this.handleAutomationMouseMove(e));
+                this.automationCanvas.addEventListener('pointerup', () => { this.automationDragging = false; });
+                this.automationCanvas.addEventListener('pointerleave', () => { this.automationDragging = false; });
                 this.automationCanvas.addEventListener('contextmenu', (e) => this.handleAutomationRightClick(e));
             }
 
@@ -3067,6 +3101,7 @@
 
             this.scheduler();
             document.getElementById('btn-play').classList.add('active');
+            this.updateFabPlayState();
             this.setStatus('Playing - ' + this.bpm + ' BPM');
         }
 
@@ -3082,6 +3117,7 @@
             this.currentStep = -1;
             document.getElementById('btn-play').classList.remove('active');
             document.getElementById('btn-record').classList.remove('active');
+            this.updateFabPlayState();
             this.setStatus('Stopped');
         }
 
@@ -5303,6 +5339,421 @@
         writeString(view, offset, str) {
             for (let i = 0; i < str.length; i++) {
                 view.setUint8(offset + i, str.charCodeAt(i));
+            }
+        }
+
+        // ---- Phase 6: Mobile Optimization ----
+        initMobile() {
+            this.buildMobileDrawer();
+            this.buildMobilePiano();
+            this.bindFabPlay();
+            this.bindSwipeNavigation();
+            this.bindOrientationChange();
+            this.bindPinchZoom();
+            this.preventBrowserGestures();
+            this.bindLongPressHandlers();
+        }
+
+        // Hamburger drawer
+        buildMobileDrawer() {
+            const drawer = document.getElementById('mobile-drawer');
+            const overlay = document.getElementById('mobile-drawer-overlay');
+            if (!drawer || !overlay) return;
+
+            // Close button
+            const closeBtn = el('button', { className: 'drawer-close', text: '\u00D7' });
+            closeBtn.addEventListener('click', () => this.closeMobileDrawer());
+            drawer.appendChild(closeBtn);
+
+            // Pattern tools section
+            const patSection = el('div', { className: 'drawer-section' });
+            patSection.appendChild(el('span', { className: 'drawer-section-label', text: 'PATTERN TOOLS' }));
+            const patBtns = [
+                { text: 'CPY', handler: () => { this.state.copyPattern(); this.setStatus('Pattern copied'); this.closeMobileDrawer(); } },
+                { text: 'PST', handler: () => { if (this.state.pastePattern()) { this.syncStepsDropdown(); this.buildStepIndicators(); this.buildSequencerGrid(); this.drawPianoRoll(); this.drawAutomation(); this.autoSave(); this.setStatus('Pattern pasted'); } this.closeMobileDrawer(); } },
+                { text: 'CLR', handler: () => { this.state.clearPattern(); this.buildSequencerGrid(); this.drawPianoRoll(); this.drawAutomation(); this.autoSave(); this.setStatus('Pattern cleared'); this.closeMobileDrawer(); } },
+                { text: 'HUM', handler: () => { this.humanizePattern(); this.closeMobileDrawer(); } }
+            ];
+            for (const pb of patBtns) {
+                const btn = el('button', { className: 'tool-btn', text: pb.text });
+                btn.style.minHeight = '44px';
+                btn.style.minWidth = '60px';
+                btn.addEventListener('click', pb.handler);
+                patSection.appendChild(btn);
+            }
+            drawer.appendChild(patSection);
+
+            // Save tools section
+            const saveSection = el('div', { className: 'drawer-section' });
+            saveSection.appendChild(el('span', { className: 'drawer-section-label', text: 'SAVE / EXPORT' }));
+            const saveBtns = [
+                { text: 'SAVE', handler: () => { this.saveProject(); this.closeMobileDrawer(); } },
+                { text: 'LOAD', handler: () => { this.loadProject(); this.closeMobileDrawer(); } },
+                { text: 'JSON', handler: () => { this.exportJSON(); this.closeMobileDrawer(); } },
+                { text: 'WAV', handler: () => { this.exportWAV(); this.closeMobileDrawer(); } }
+            ];
+            for (const sb of saveBtns) {
+                const btn = el('button', { className: 'tool-btn', text: sb.text });
+                btn.style.minHeight = '44px';
+                btn.style.minWidth = '60px';
+                btn.addEventListener('click', sb.handler);
+                saveSection.appendChild(btn);
+            }
+            drawer.appendChild(saveSection);
+
+            // Preset section
+            const presetSection = el('div', { className: 'drawer-section' });
+            presetSection.appendChild(el('span', { className: 'drawer-section-label', text: 'PRESETS' }));
+            const browseBtn = el('button', { className: 'tool-btn', text: 'BROWSE PRESETS' });
+            browseBtn.style.minHeight = '44px';
+            browseBtn.addEventListener('click', () => { this.togglePresetBrowser(); this.closeMobileDrawer(); });
+            presetSection.appendChild(browseBtn);
+            // Clone preset select for mobile drawer
+            const presetSelect = el('select', { className: 'synth-select' });
+            const origSelect = document.getElementById('preset-select');
+            if (origSelect) {
+                for (let i = 0; i < origSelect.options.length; i++) {
+                    const opt = el('option', { value: origSelect.options[i].value, text: origSelect.options[i].text });
+                    presetSelect.appendChild(opt);
+                }
+            }
+            presetSelect.addEventListener('change', (e) => {
+                if (e.target.value) { this.loadPreset(e.target.value); this.closeMobileDrawer(); }
+            });
+            presetSection.appendChild(presetSelect);
+            drawer.appendChild(presetSection);
+
+            // Steps/Swing section
+            const ctrlSection = el('div', { className: 'drawer-section' });
+            ctrlSection.appendChild(el('span', { className: 'drawer-section-label', text: 'CONTROLS' }));
+            const stepsLabel = el('span', { text: 'STEPS:', style: { fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)' } });
+            ctrlSection.appendChild(stepsLabel);
+            const stepsSelect = el('select', { className: 'synth-select' });
+            [16, 32, 64].forEach(v => {
+                const opt = el('option', { value: String(v), text: String(v) });
+                stepsSelect.appendChild(opt);
+            });
+            stepsSelect.value = String(this.state.getSteps());
+            stepsSelect.addEventListener('change', (e) => {
+                const newLen = parseInt(e.target.value);
+                this.state.pushUndo();
+                this.state.setPatternLength(newLen);
+                this.buildStepIndicators();
+                this.buildSequencerGrid();
+                this.drawPianoRoll();
+                this.drawAutomation();
+                this.autoSave();
+                this.setStatus('Pattern length: ' + newLen + ' steps');
+                // Sync the main steps dropdown too
+                const mainSteps = document.getElementById('steps-select');
+                if (mainSteps) mainSteps.value = String(newLen);
+            });
+            ctrlSection.appendChild(stepsSelect);
+            drawer.appendChild(ctrlSection);
+
+            // Hamburger button event
+            const hamburgerBtn = document.getElementById('btn-hamburger');
+            if (hamburgerBtn) {
+                hamburgerBtn.addEventListener('click', () => this.toggleMobileDrawer());
+            }
+
+            // Overlay click to close
+            overlay.addEventListener('click', () => this.closeMobileDrawer());
+        }
+
+        toggleMobileDrawer() {
+            const drawer = document.getElementById('mobile-drawer');
+            const overlay = document.getElementById('mobile-drawer-overlay');
+            if (!drawer) return;
+            const isOpen = drawer.classList.contains('open');
+            if (isOpen) {
+                this.closeMobileDrawer();
+            } else {
+                drawer.classList.remove('hidden');
+                drawer.classList.add('open');
+                if (overlay) overlay.classList.remove('hidden');
+            }
+        }
+
+        closeMobileDrawer() {
+            const drawer = document.getElementById('mobile-drawer');
+            const overlay = document.getElementById('mobile-drawer-overlay');
+            if (drawer) {
+                drawer.classList.remove('open');
+                setTimeout(() => { if (!drawer.classList.contains('open')) drawer.classList.add('hidden'); }, 300);
+            }
+            if (overlay) overlay.classList.add('hidden');
+        }
+
+        // Mobile piano keyboard
+        buildMobilePiano() {
+            const container = document.getElementById('mobile-piano');
+            if (!container) return;
+            this.mobilePianoOctave = this.pianoRollOctave;
+            this.renderMobilePianoKeys();
+        }
+
+        renderMobilePianoKeys() {
+            const container = document.getElementById('mobile-piano');
+            if (!container) return;
+            while (container.firstChild) container.removeChild(container.firstChild);
+
+            // Octave down button
+            const octDownBtn = el('button', { className: 'mobile-piano-octave-btn', text: '\u25C0' });
+            octDownBtn.addEventListener('click', () => {
+                if (this.mobilePianoOctave > 1) {
+                    this.mobilePianoOctave--;
+                    this.renderMobilePianoKeys();
+                }
+            });
+            container.appendChild(octDownBtn);
+
+            // White and black key layout for one octave
+            const keyLayout = [
+                { note: 0, name: 'C', black: false },
+                { note: 1, name: 'C#', black: true },
+                { note: 2, name: 'D', black: false },
+                { note: 3, name: 'D#', black: true },
+                { note: 4, name: 'E', black: false },
+                { note: 5, name: 'F', black: false },
+                { note: 6, name: 'F#', black: true },
+                { note: 7, name: 'G', black: false },
+                { note: 8, name: 'G#', black: true },
+                { note: 9, name: 'A', black: false },
+                { note: 10, name: 'A#', black: true },
+                { note: 11, name: 'B', black: false }
+            ];
+
+            const self = this;
+            for (const kd of keyLayout) {
+                const midiNote = (self.mobilePianoOctave + 1) * 12 + kd.note;
+                const keyEl = el('div', {
+                    className: 'mobile-piano-key' + (kd.black ? ' black' : ''),
+                    text: kd.name
+                });
+                keyEl.addEventListener('pointerdown', function(e) {
+                    e.preventDefault();
+                    self.audio.init().then(function() {
+                        self.audio.previewNote(self.pianoRollChannel, midiNote);
+                        // If recording, place note
+                        if (self.playing && self.recording && self.currentStep >= 0) {
+                            const channels = self.state.getCurrentPatternChannels();
+                            const ch = self.pianoRollChannel;
+                            const stepData = channels[ch][self.currentStep];
+                            stepData.on = true;
+                            stepData.note = midiNote;
+                            self.updateStepDisplay(ch, self.currentStep);
+                            self.drawPianoRoll();
+                            self.autoSave();
+                        }
+                    });
+                });
+                container.appendChild(keyEl);
+            }
+
+            // Octave up button
+            const octUpBtn = el('button', { className: 'mobile-piano-octave-btn', text: '\u25B6' });
+            octUpBtn.addEventListener('click', () => {
+                if (this.mobilePianoOctave < 7) {
+                    this.mobilePianoOctave++;
+                    this.renderMobilePianoKeys();
+                }
+            });
+            container.appendChild(octUpBtn);
+        }
+
+        updateMobilePianoVisibility() {
+            const piano = document.getElementById('mobile-piano');
+            if (!piano) return;
+            if (isMobile() && this.activeTab === 'pianoroll') {
+                piano.classList.remove('hidden');
+            } else {
+                piano.classList.add('hidden');
+            }
+        }
+
+        // FAB play button
+        bindFabPlay() {
+            const fab = document.getElementById('btn-fab-play');
+            if (!fab) return;
+            fab.addEventListener('click', () => this.togglePlay());
+        }
+
+        updateFabPlayState() {
+            const fab = document.getElementById('btn-fab-play');
+            if (!fab) return;
+            if (this.playing) {
+                fab.classList.add('playing');
+                fab.textContent = '\u25A0'; // stop icon
+            } else {
+                fab.classList.remove('playing');
+                fab.textContent = '\u25B6'; // play icon
+            }
+        }
+
+        // Swipe tab navigation
+        bindSwipeNavigation() {
+            const panels = document.getElementById('panels');
+            if (!panels) return;
+            let startX = 0;
+            let startY = 0;
+            let startedOnCanvas = false;
+
+            panels.addEventListener('touchstart', (e) => {
+                const t = e.touches[0];
+                startX = t.clientX;
+                startY = t.clientY;
+                startedOnCanvas = !!(e.target.tagName === 'CANVAS');
+            }, { passive: true });
+
+            panels.addEventListener('touchend', (e) => {
+                if (startedOnCanvas) return;
+                const t = e.changedTouches[0];
+                const dx = t.clientX - startX;
+                const dy = t.clientY - startY;
+                if (Math.abs(dx) < 80 || Math.abs(dy) > Math.abs(dx)) return;
+
+                const tabs = ['sequencer', 'pianoroll', 'mixer', 'syntheditor', 'automation', 'songmode'];
+                const currentIdx = tabs.indexOf(this.activeTab);
+                if (currentIdx < 0) return;
+                let newIdx;
+                if (dx < 0) {
+                    newIdx = Math.min(currentIdx + 1, tabs.length - 1);
+                } else {
+                    newIdx = Math.max(currentIdx - 1, 0);
+                }
+                if (newIdx !== currentIdx) {
+                    this.switchToTab(tabs[newIdx]);
+                }
+            }, { passive: true });
+        }
+
+        switchToTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            const tabBtn = document.querySelector('.tab[data-tab="' + tabName + '"]');
+            if (tabBtn) tabBtn.classList.add('active');
+            const panel = document.getElementById('panel-' + tabName);
+            if (panel) panel.classList.add('active');
+            this.activeTab = tabName;
+            if (tabName === 'pianoroll') this.drawPianoRoll();
+            if (tabName === 'automation') this.drawAutomation();
+            this.updateMobilePianoVisibility();
+        }
+
+        // Orientation change - resize canvases
+        bindOrientationChange() {
+            const self = this;
+            window.addEventListener('orientationchange', function() {
+                setTimeout(function() {
+                    if (self.pianoCanvas) {
+                        self.drawPianoRoll();
+                    }
+                    if (self.automationCanvas) {
+                        self.drawAutomation();
+                    }
+                    if (self.arrangementCanvas) {
+                        self.drawArrangement();
+                    }
+                    // Resize visualizer
+                    const vis = document.getElementById('visualizer');
+                    if (vis) {
+                        vis.width = vis.parentElement.offsetWidth;
+                    }
+                }, 300);
+            });
+        }
+
+        // Prevent browser gestures (pull-to-refresh, etc)
+        preventBrowserGestures() {
+            document.body.style.touchAction = 'manipulation';
+            // Prevent pull-to-refresh on the main app
+            document.addEventListener('touchmove', function(e) {
+                if (e.touches.length > 1) return; // allow pinch
+                const scrollable = e.target.closest('#panels, .mixer-channels, .seq-steps, .pianoroll-canvas-wrapper, .preset-browser-list');
+                if (!scrollable && e.cancelable) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+        }
+
+        // Pinch-zoom on piano roll
+        bindPinchZoom() {
+            const canvas = this.pianoCanvas;
+            if (!canvas) return;
+            let initialDist = 0;
+            let initialZoom = 1;
+
+            canvas.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 2) {
+                    const dx = e.touches[0].clientX - e.touches[1].clientX;
+                    const dy = e.touches[0].clientY - e.touches[1].clientY;
+                    initialDist = Math.sqrt(dx * dx + dy * dy);
+                    initialZoom = this.pianoRollZoom;
+                }
+            }, { passive: true });
+
+            canvas.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 2) {
+                    e.preventDefault();
+                    const dx = e.touches[0].clientX - e.touches[1].clientX;
+                    const dy = e.touches[0].clientY - e.touches[1].clientY;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (initialDist > 0) {
+                        const scale = dist / initialDist;
+                        this.pianoRollZoom = Math.max(0.5, Math.min(3.0, initialZoom * scale));
+                        this.updatePianoRollZoom();
+                    }
+                }
+            }, { passive: false });
+        }
+
+        // Long-press handlers for context menus
+        bindLongPressHandlers() {
+            // Sequencer grid long-press
+            const seqGrid = document.querySelector('.sequencer-grid');
+            if (seqGrid) {
+                addLongPress(seqGrid, (e) => {
+                    const stepEl = e.target.closest('.seq-step');
+                    if (!stepEl) return;
+                    const ch = parseInt(stepEl.dataset.channel);
+                    const s = parseInt(stepEl.dataset.step);
+                    const stepData = this.state.getStep(ch, s);
+                    const items = [
+                        { label: 'Set Velocity 25%', action: () => { stepData.velocity = 0.25; this.updateStepDisplay(ch, s); this.autoSave(); }, disabled: !stepData.on },
+                        { label: 'Set Velocity 50%', action: () => { stepData.velocity = 0.5; this.updateStepDisplay(ch, s); this.autoSave(); }, disabled: !stepData.on },
+                        { label: 'Set Velocity 75%', action: () => { stepData.velocity = 0.75; this.updateStepDisplay(ch, s); this.autoSave(); }, disabled: !stepData.on },
+                        { label: 'Set Velocity 100%', action: () => { stepData.velocity = 1.0; this.updateStepDisplay(ch, s); this.autoSave(); }, disabled: !stepData.on },
+                    ];
+                    if (ch === 2) {
+                        items.push({ label: 'separator' });
+                        items.push({ label: 'Toggle Open Hat', action: () => {
+                            if (stepData.on) { stepData.open = !stepData.open; this.updateStepDisplay(ch, s); this.autoSave(); }
+                        }, disabled: !stepData.on });
+                    }
+                    items.push({ label: 'separator' });
+                    items.push({ label: 'Clear Step', action: () => {
+                        this.state.pushUndo();
+                        stepData.on = false; stepData.open = false;
+                        this.updateStepDisplay(ch, s); this.autoSave(); this.updateUndoRedoButtons();
+                    }});
+                    this.showContextMenu(e.clientX, e.clientY, items);
+                }, 600);
+            }
+
+            // Piano roll canvas long-press
+            if (this.pianoCanvas) {
+                addLongPress(this.pianoCanvas, (e) => {
+                    this.handlePianoRollContextMenu(e);
+                }, 600);
+            }
+
+            // Automation canvas long-press
+            if (this.automationCanvas) {
+                addLongPress(this.automationCanvas, (e) => {
+                    e.preventDefault();
+                    this.handleAutomationRightClick(e);
+                }, 600);
             }
         }
 

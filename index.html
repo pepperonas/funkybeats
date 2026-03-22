@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>FunkyBeats - Electronic Music Producer</title>
     <link rel="stylesheet" href="style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>🎹</text></svg>">
@@ -15,6 +15,7 @@
                 <span class="logo-icon">&#9835;</span>
                 <span class="logo-text">FUNKY<span class="accent">BEATS</span></span>
             </div>
+            <button id="btn-hamburger" class="transport-btn hamburger-btn" title="Menu">&#9776;</button>
             <div class="transport-controls">
                 <button id="btn-play" class="transport-btn" title="Play (Space)">&#9654;</button>
                 <button id="btn-stop" class="transport-btn" title="Stop (Space)">&#9632;</button>
@@ -116,14 +117,18 @@
             </div>
         </header>
 
+        <!-- Mobile Hamburger Drawer -->
+        <div id="mobile-drawer" class="mobile-drawer hidden"></div>
+        <div id="mobile-drawer-overlay" class="mobile-drawer-overlay hidden"></div>
+
         <!-- Tab Bar -->
         <nav id="tab-bar">
-            <button class="tab active" data-tab="sequencer">STEP SEQUENCER</button>
-            <button class="tab" data-tab="pianoroll">PIANO ROLL</button>
-            <button class="tab" data-tab="mixer">MIXER</button>
-            <button class="tab" data-tab="syntheditor">SYNTH EDITOR</button>
-            <button class="tab" data-tab="automation">AUTOMATION</button>
-            <button class="tab" data-tab="songmode">SONG MODE</button>
+            <button class="tab active" data-tab="sequencer" data-short="SEQ">STEP SEQUENCER</button>
+            <button class="tab" data-tab="pianoroll" data-short="PIANO">PIANO ROLL</button>
+            <button class="tab" data-tab="mixer" data-short="MIX">MIXER</button>
+            <button class="tab" data-tab="syntheditor" data-short="SYNTH">SYNTH EDITOR</button>
+            <button class="tab" data-tab="automation" data-short="AUTO">AUTOMATION</button>
+            <button class="tab" data-tab="songmode" data-short="SONG">SONG MODE</button>
         </nav>
 
         <!-- Visualizer -->
@@ -382,6 +387,12 @@
                 Ctrl+Z Undo | Ctrl+S Save | T Tap | Web Audio 44.1kHz
             </span>
         </footer>
+
+        <!-- Mobile Piano Keyboard -->
+        <div id="mobile-piano" class="mobile-piano hidden"></div>
+
+        <!-- Floating Play Button -->
+        <button id="btn-fab-play" class="fab-play">&#9654;</button>
     </div>
 
     <!-- Hidden file input for JSON import -->
