@@ -78,7 +78,14 @@ Project version is currently **5**. `deserializeProject()` handles migration fro
 
 ### Presets
 
-The `PRESETS` constant contains 20+ hardcoded patterns (Phonk D, Storken, Thomas Hammann styles). Presets only set step data and BPM — they don't modify synth parameters or effects.
+The `PRESETS` constant contains 60 hardcoded patterns in 12 categories: Standard (5), Phonk D (5), Storken (5), Thomas Hammann (5), Classic Disco (5), Italo Disco (5), Chicago House (5), Deep House (5), Acid House (5), Tech House (5), Funky House (5), Pure Funk (5). Presets only set step data and BPM — they don't modify synth parameters or effects. `PRESET_META` stores artist, tags, and description for the preset browser UI.
+
+### Deployment
+
+The app is hosted at `https://funkybeats.celox.io/` on a VPS (69.62.121.168). Deploy via:
+```bash
+scp index.html app.js style.css root@69.62.121.168:/var/www/funkybeats.celox.io/
+```
 
 ## Key Patterns
 
