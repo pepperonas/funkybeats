@@ -2443,6 +2443,10 @@
             document.getElementById('btn-json-export').addEventListener('click', () => this.exportJSON());
             document.getElementById('json-import').addEventListener('change', (e) => this.importJSON(e));
 
+            // AI Track Generator
+            const btnAI = document.getElementById('btn-ai');
+            if (btnAI) btnAI.addEventListener('click', () => this.toggleAIModal());
+
             // Sample import
             document.getElementById('sample-import').addEventListener('change', (e) => this.handleSampleImport(e));
 
@@ -5896,6 +5900,169 @@
         setStatus(msg) {
             const statusEl = document.getElementById('status-left');
             if (statusEl) statusEl.textContent = msg;
+        }
+
+        // ---- AI Track Generator ----
+        toggleAIModal() {
+            let overlay = document.querySelector('.ai-overlay');
+            if (overlay) {
+                overlay.remove();
+                return;
+            }
+
+            overlay = el('div', { className: 'ai-overlay' });
+            const card = el('div', { className: 'ai-card' });
+
+            // Header
+            const header = el('div', { className: 'ai-header' }, [
+                el('span', { className: 'ai-title', text: 'AI TRACK GENERATOR' }),
+                el('button', { className: 'ai-close', text: 'x' })
+            ]);
+            header.querySelector('.ai-close').addEventListener('click', () => overlay.remove());
+            card.appendChild(header);
+
+            // Body
+            const body = el('div', { className: 'ai-body' });
+
+            // Password field
+            const savedPw = sessionStorage.getItem('funkybeats-ai-pw') || '';
+            const pwField = el('div', { className: 'ai-field' }, [
+                el('label', { text: 'PASSWORD' }),
+                el('input', { type: 'password', id: 'ai-password', placeholder: 'Enter access password', value: savedPw })
+            ]);
+            body.appendChild(pwField);
+
+            // Mode selector
+            const modeField = el('div', { className: 'ai-field' }, [
+                el('label', { text: 'MODE' }),
+                el('div', { className: 'ai-mode-btns' }, [
+                    el('button', { className: 'ai-mode-btn active', text: 'New Track' }),
+                    el('button', { className: 'ai-mode-btn', text: 'Edit Current' })
+                ])
+            ]);
+            let aiMode = 'generate';
+            const modeBtns = modeField.querySelectorAll('.ai-mode-btn');
+            modeBtns.forEach((btn, i) => {
+                btn.addEventListener('click', () => {
+                    modeBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    aiMode = i === 0 ? 'generate' : 'modify';
+                });
+            });
+            body.appendChild(modeField);
+
+            // Prompt field
+            const promptField = el('div', { className: 'ai-field' }, [
+                el('label', { text: 'DESCRIBE YOUR TRACK' }),
+                el('textarea', { id: 'ai-prompt', placeholder: 'e.g. "Funky disco groove in Cm, 120 BPM, with off-beat stabs, deep bass, and a filter sweep on the lead"' })
+            ]);
+            body.appendChild(promptField);
+
+            // Status
+            const status = el('div', { className: 'ai-status', text: '' });
+            body.appendChild(status);
+
+            // Generate button
+            const genBtn = el('button', { className: 'ai-generate-btn', text: 'GENERATE' });
+            body.appendChild(genBtn);
+
+            // Result buttons (hidden initially)
+            const resultBtns = el('div', { className: 'ai-result-btns', style: { display: 'none' } }, [
+                el('button', { className: 'ai-apply-btn', text: 'APPLY TRACK' }),
+                el('button', { className: 'ai-discard-btn', text: 'DISCARD' })
+            ]);
+            body.appendChild(resultBtns);
+
+            card.appendChild(body);
+            overlay.appendChild(card);
+            document.body.appendChild(overlay);
+
+            // Close on overlay click
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) overlay.remove();
+            });
+
+            // Generate handler
+            let pendingProject = null;
+            const self = this;
+
+            genBtn.addEventListener('click', async () => {
+                const password = document.getElementById('ai-password').value;
+                const prompt = document.getElementById('ai-prompt').value.trim();
+
+                if (!password) {
+                    status.textContent = 'Password required';
+                    status.className = 'ai-status error';
+                    return;
+                }
+                if (!prompt) {
+                    status.textContent = 'Please describe your track';
+                    status.className = 'ai-status error';
+                    return;
+                }
+
+                sessionStorage.setItem('funkybeats-ai-pw', password);
+                genBtn.disabled = true;
+                resultBtns.style.display = 'none';
+                pendingProject = null;
+
+                const spinnerSpan = el('span', { className: 'ai-spinner' });
+                status.textContent = '';
+                status.appendChild(spinnerSpan);
+                status.appendChild(document.createTextNode(' Claude is composing your track...'));
+                status.className = 'ai-status';
+
+                try {
+                    const endpoint = aiMode === 'generate' ? '/api/generate' : '/api/modify';
+                    const bodyData = { password, prompt };
+                    if (aiMode === 'modify') {
+                        bodyData.currentProject = self.serializeProject();
+                    }
+
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(bodyData)
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok || !data.success) {
+                        status.textContent = data.error || 'Generation failed';
+                        status.className = 'ai-status error';
+                        genBtn.disabled = false;
+                        return;
+                    }
+
+                    pendingProject = data.project;
+                    status.textContent = 'Track generated: ' + pendingProject.bpm + ' BPM';
+                    status.className = 'ai-status success';
+                    resultBtns.style.display = 'flex';
+                    genBtn.disabled = false;
+
+                } catch (err) {
+                    status.textContent = 'Connection error: ' + err.message;
+                    status.className = 'ai-status error';
+                    genBtn.disabled = false;
+                }
+            });
+
+            // Apply button
+            resultBtns.querySelector('.ai-apply-btn').addEventListener('click', () => {
+                if (pendingProject) {
+                    self.deserializeProject(pendingProject);
+                    self.setStatus('AI track applied - ' + pendingProject.bpm + ' BPM');
+                    overlay.remove();
+                }
+            });
+
+            // Discard button
+            resultBtns.querySelector('.ai-discard-btn').addEventListener('click', () => {
+                pendingProject = null;
+                resultBtns.style.display = 'none';
+                status.textContent = 'Discarded. Write a new prompt.';
+                status.className = 'ai-status';
+            });
         }
 
         // Preview sound when placing a step in the sequencer

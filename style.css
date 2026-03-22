@@ -1522,6 +1522,233 @@ input[type="range"]:hover::-webkit-slider-thumb {
     100% { background: transparent; }
 }
 
+/* ---- AI Button & Modal ---- */
+.ai-btn {
+    font-size: 11px !important;
+    font-weight: 800;
+    letter-spacing: 1px;
+    width: auto !important;
+    padding: 0 12px !important;
+    background: linear-gradient(135deg, #bb86fc, #ff6bb5) !important;
+    color: #fff !important;
+    border: none !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+.ai-btn:hover {
+    box-shadow: 0 0 16px rgba(187, 134, 252, 0.5);
+    filter: brightness(1.15);
+}
+
+.ai-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+}
+
+.ai-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    width: 90%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+.ai-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+}
+
+.ai-title {
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    background: linear-gradient(135deg, #bb86fc, #ff6bb5);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.ai-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 20px;
+    cursor: pointer;
+    padding: 4px 8px;
+}
+
+.ai-close:hover {
+    color: var(--text-primary);
+}
+
+.ai-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.ai-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ai-field label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--text-secondary);
+}
+
+.ai-field input,
+.ai-field textarea {
+    padding: 10px 12px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.ai-field input:focus,
+.ai-field textarea:focus {
+    outline: none;
+    border-color: #bb86fc;
+}
+
+.ai-field textarea {
+    min-height: 80px;
+}
+
+.ai-mode-btns {
+    display: flex;
+    gap: 8px;
+}
+
+.ai-mode-btn {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all var(--transition);
+    text-align: center;
+}
+
+.ai-mode-btn:hover {
+    border-color: #bb86fc;
+}
+
+.ai-mode-btn.active {
+    background: linear-gradient(135deg, rgba(187,134,252,0.2), rgba(255,107,181,0.2));
+    border-color: #bb86fc;
+    color: var(--text-primary);
+}
+
+.ai-generate-btn {
+    padding: 12px;
+    background: linear-gradient(135deg, #bb86fc, #ff6bb5);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.ai-generate-btn:hover {
+    filter: brightness(1.15);
+    box-shadow: 0 4px 20px rgba(187, 134, 252, 0.4);
+}
+
+.ai-generate-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: none;
+    box-shadow: none;
+}
+
+.ai-status {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: center;
+    min-height: 20px;
+}
+
+.ai-status.error {
+    color: var(--accent-red);
+}
+
+.ai-status.success {
+    color: var(--accent-green);
+}
+
+.ai-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--text-muted);
+    border-top-color: #bb86fc;
+    border-radius: 50%;
+    animation: ai-spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+}
+
+@keyframes ai-spin {
+    to { transform: rotate(360deg); }
+}
+
+.ai-result-btns {
+    display: flex;
+    gap: 8px;
+}
+
+.ai-apply-btn {
+    flex: 1;
+    padding: 10px;
+    background: var(--accent-green);
+    border: none;
+    border-radius: var(--radius);
+    color: #000;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.ai-discard-btn {
+    flex: 1;
+    padding: 10px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
 /* ---- Phase 3: SEL button active state ---- */
 .small-btn.active {
     background: var(--accent-blue);
