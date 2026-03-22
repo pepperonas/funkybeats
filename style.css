@@ -284,13 +284,7 @@ body {
 }
 
 #preset-select {
-    padding: 4px 8px;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    color: var(--text-primary);
-    font-size: 12px;
-    cursor: pointer;
+    display: none;
 }
 
 #preset-select:focus {
