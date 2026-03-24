@@ -2232,6 +2232,238 @@ input[type="range"]:hover::-webkit-slider-thumb {
     position: relative;
 }
 
+/* ---- Phase 6: Ghost, Snap, Eucl buttons ---- */
+.ghost-btn.active, .snap-btn.active {
+    background: var(--accent-purple);
+    color: #000;
+    border-color: var(--accent-purple);
+    box-shadow: 0 0 6px rgba(187, 134, 252, 0.4);
+}
+
+.pianoroll-toolbar select.scale-select,
+.pianoroll-toolbar select.root-select {
+    padding: 4px 6px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-size: 11px;
+    min-width: 60px;
+}
+
+/* ---- Phase 6: Step Probability ---- */
+.seq-step.prob-step {
+    border-style: dashed !important;
+    opacity: 0.7;
+}
+
+/* ---- Phase 6: Euclidean Popup ---- */
+.eucl-popup {
+    position: fixed;
+    z-index: 2000;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    min-width: 220px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.eucl-popup label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+}
+
+.eucl-popup .eucl-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.eucl-popup input[type="range"] {
+    flex: 1;
+    height: 4px;
+}
+
+.eucl-popup .eucl-val {
+    font-size: 11px;
+    color: var(--accent-orange);
+    font-weight: 700;
+    min-width: 24px;
+    text-align: center;
+    font-family: 'Courier New', monospace;
+}
+
+.eucl-popup .eucl-apply-btn {
+    padding: 6px 12px;
+    background: var(--accent-orange);
+    border: none;
+    border-radius: var(--radius);
+    color: #000;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all var(--transition);
+    margin-top: 4px;
+}
+
+.eucl-popup .eucl-apply-btn:hover {
+    filter: brightness(1.15);
+}
+
+.eucl-popup .eucl-close-btn {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 2px 6px;
+}
+
+.eucl-popup .eucl-close-btn:hover {
+    color: var(--text-primary);
+}
+
+.seq-eucl {
+    width: 20px;
+    height: 20px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--bg-surface);
+    color: var(--text-muted);
+    font-size: 7px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    letter-spacing: -0.5px;
+}
+
+.seq-eucl:hover {
+    border-color: var(--accent-orange);
+    color: var(--accent-orange);
+}
+
+/* ---- Phase 6: Groove Control ---- */
+.groove-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.groove-control label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    letter-spacing: 1px;
+}
+
+#groove-select {
+    padding: 4px 6px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--accent-orange);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* ---- Phase 6: Perform Mode ---- */
+.perform-grid {
+    display: grid;
+    grid-template-columns: 80px repeat(8, 1fr);
+    gap: 4px;
+    padding: 8px;
+}
+
+.perform-header {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+    text-align: center;
+    padding: 4px;
+}
+
+.perform-row-label {
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+}
+
+.perform-cell {
+    width: 100%;
+    aspect-ratio: 1.5;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 2px solid var(--border);
+    background: var(--bg-surface);
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+}
+
+.perform-cell:hover {
+    border-color: var(--text-secondary);
+    background: var(--bg-elevated);
+}
+
+.perform-cell.active {
+    box-shadow: 0 0 12px rgba(255, 107, 53, 0.5);
+    border-color: var(--accent-orange);
+    background: var(--accent-orange);
+    color: #000;
+}
+
+.perform-cell.queued {
+    animation: pulse-queue 0.6s ease infinite;
+    border-color: var(--accent-yellow);
+}
+
+@keyframes pulse-queue {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.perform-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--bg-surface);
+    border-radius: var(--radius);
+    margin-bottom: 8px;
+}
+
+.perform-toolbar .perform-mode-indicator {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+}
+
+.perform-toolbar .perform-mode-indicator.active {
+    color: var(--accent-green);
+}
+
 /* ---- Phase 5: MIDI Indicator ---- */
 .midi-indicator {
     font-size: 10px;

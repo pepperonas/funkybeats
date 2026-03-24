@@ -36,6 +36,17 @@
                     <input type="range" id="swing" min="0" max="100" value="0" class="knob-range">
                     <span id="swing-val">0%</span>
                 </div>
+                <div class="groove-control">
+                    <label>GROOVE</label>
+                    <select id="groove-select">
+                        <option value="none">None</option>
+                        <option value="mpc">MPC</option>
+                        <option value="tr808">TR-808</option>
+                        <option value="human">Human</option>
+                        <option value="lazy">Lazy</option>
+                        <option value="push">Push</option>
+                    </select>
+                </div>
                 <div class="transport-divider"></div>
                 <div class="steps-control">
                     <label>STEPS</label>
@@ -51,6 +62,7 @@
                     <div class="mode-btns">
                         <button class="mode-btn active" data-mode="pattern">PAT</button>
                         <button class="mode-btn" data-mode="song">SONG</button>
+                        <button class="mode-btn" data-mode="perform">PERF</button>
                     </div>
                 </div>
                 <div class="transport-divider"></div>
@@ -186,6 +198,7 @@
             <button class="tab" data-tab="syntheditor" data-short="SYNTH">SYNTH EDITOR</button>
             <button class="tab" data-tab="automation" data-short="AUTO">AUTOMATION</button>
             <button class="tab" data-tab="songmode" data-short="SONG">SONG MODE</button>
+            <button class="tab" data-tab="perform" data-short="PERF">PERFORM</button>
         </nav>
 
         <!-- Visualizer -->
@@ -220,6 +233,35 @@
                     <button id="octave-up" class="small-btn">+</button>
                     <div class="pianoroll-divider"></div>
                     <button id="clear-notes" class="small-btn">Clear</button>
+                    <button id="btn-ghost" class="small-btn ghost-btn active" title="Show Ghost Notes">GHOST</button>
+                    <div class="pianoroll-divider"></div>
+                    <label>Root:</label>
+                    <select id="scale-root" class="root-select">
+                        <option value="0">C</option>
+                        <option value="1">C#</option>
+                        <option value="2">D</option>
+                        <option value="3">D#</option>
+                        <option value="4">E</option>
+                        <option value="5">F</option>
+                        <option value="6">F#</option>
+                        <option value="7">G</option>
+                        <option value="8">G#</option>
+                        <option value="9">A</option>
+                        <option value="10">A#</option>
+                        <option value="11">B</option>
+                    </select>
+                    <label>Scale:</label>
+                    <select id="scale-name" class="scale-select">
+                        <option value="chromatic">Chromatic</option>
+                        <option value="major">Major</option>
+                        <option value="minor">Minor</option>
+                        <option value="dorian">Dorian</option>
+                        <option value="mixolydian">Mixolydian</option>
+                        <option value="pentatonic">Pentatonic</option>
+                        <option value="blues">Blues</option>
+                        <option value="harmonic-minor">Harm. Minor</option>
+                    </select>
+                    <button id="btn-snap" class="small-btn snap-btn" title="Snap to Scale">SNAP</button>
                     <div class="pianoroll-divider"></div>
                     <button id="btn-pr-select" class="small-btn" title="Select Mode (Ctrl+C/V to copy/paste)">SEL</button>
                     <div class="pianoroll-divider"></div>
@@ -364,6 +406,11 @@
                         Click to paint patterns | Right-click to clear | Drag to paint multiple bars | Select pattern above first
                     </div>
                 </div>
+            </section>
+
+            <!-- Perform / Clip Launcher -->
+            <section id="panel-perform" class="panel">
+                <div id="perform-content"></div>
             </section>
         </main>
 

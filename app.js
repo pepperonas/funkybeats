@@ -39,6 +39,70 @@
     // QWERTY keyboard piano mapping
     const PIANO_KEYS = { 'z':0,'s':1,'x':2,'d':3,'c':4,'v':5,'g':6,'b':7,'h':8,'n':9,'j':10,'m':11 };
 
+    // ---- Scale definitions ----
+    const SCALES = {
+        'chromatic': [0,1,2,3,4,5,6,7,8,9,10,11],
+        'major': [0,2,4,5,7,9,11],
+        'minor': [0,2,3,5,7,8,10],
+        'dorian': [0,2,3,5,7,9,10],
+        'mixolydian': [0,2,4,5,7,9,10],
+        'pentatonic': [0,2,4,7,9],
+        'blues': [0,3,5,6,7,10],
+        'harmonic-minor': [0,2,3,5,7,8,11]
+    };
+
+    // ---- Groove Templates (ms offsets per step) ----
+    const GROOVE_TEMPLATES = {
+        'none': null,
+        'mpc': [0, 0, 0, 15, 0, 0, 0, 10, 0, 0, 0, 15, 0, 0, 0, 10],
+        'tr808': [0, 0, 5, 0, 0, 0, 8, 0, 0, 0, 5, 0, 0, 0, 8, 0],
+        'human': [3, -2, 5, -1, 2, -3, 4, -2, 3, -1, 5, -3, 2, -2, 4, -1],
+        'lazy': [0, 0, 0, 20, 0, 0, 0, 25, 0, 0, 0, 20, 0, 0, 0, 25],
+        'push': [0, 0, -5, 0, 0, 0, -8, 0, 0, 0, -5, 0, 0, 0, -8, 0]
+    };
+
+    // ---- Euclidean / Bjorklund algorithm ----
+    function euclidean(hits, steps) {
+        if (hits >= steps) return new Array(steps).fill(true);
+        if (hits === 0) return new Array(steps).fill(false);
+        let pattern = [];
+        for (let i = 0; i < steps; i++) pattern.push(i < hits ? [true] : [false]);
+        while (true) {
+            let idx = 0;
+            while (idx < pattern.length - 1) {
+                if (pattern[idx].length !== pattern[pattern.length - 1].length) break;
+                idx++;
+            }
+            if (idx >= pattern.length - 1) break;
+            let tail = pattern.splice(idx);
+            for (let i = 0; i < Math.min(pattern.length, tail.length); i++) {
+                pattern[i] = pattern[i].concat(tail[i]);
+            }
+            if (tail.length > pattern.length) {
+                pattern = pattern.concat(tail.slice(pattern.length));
+            }
+        }
+        return pattern.flat();
+    }
+
+    // ---- Scale helpers ----
+    function isInScale(midiNote, scaleRoot, scaleName) {
+        const scale = SCALES[scaleName] || SCALES['chromatic'];
+        const pitchClass = ((midiNote % 12) - scaleRoot + 12) % 12;
+        return scale.includes(pitchClass);
+    }
+
+    function snapToScale(midiNote, scaleRoot, scaleName) {
+        if (isInScale(midiNote, scaleRoot, scaleName)) return midiNote;
+        const scale = SCALES[scaleName] || SCALES['chromatic'];
+        // Search outward for nearest scale note
+        for (let offset = 1; offset <= 6; offset++) {
+            if (isInScale(midiNote - offset, scaleRoot, scaleName)) return midiNote - offset;
+            if (isInScale(midiNote + offset, scaleRoot, scaleName)) return midiNote + offset;
+        }
+        return midiNote;
+    }
+
     // ---- Mobile Detection Helpers ----
     const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
     const isTouchDevice = () => 'ontouchstart' in window || navigator.maxTouchPoints > 0;
@@ -143,6 +207,7 @@
             this.distortionNode = null;
             this.channelGains = [];
             this.channelPans = [];
+            this.channelAnalysers = [];
             this.channelMuted = new Array(CHANNELS.length).fill(false);
             this.channelSolo = new Array(CHANNELS.length).fill(false);
             this.noiseBuffer = null;
@@ -232,14 +297,16 @@
                     return {
                         tune: 0, decay: 50, tone: 50, drive: 0,
                         eqLow: 0, eqMid: 0, eqHigh: 0,
-                        reverbSend: 20, delaySend: 0
+                        reverbSend: 20, delaySend: 0,
+                        swing: 0
                     };
                 } else {
                     const base = {
                         waveform: 'sawtooth', attack: 10, decay: 50,
                         cutoff: 70, resonance: 5, detune: 5, glide: 0,
                         eqLow: 0, eqMid: 0, eqHigh: 0,
-                        reverbSend: 20, delaySend: 0
+                        reverbSend: 20, delaySend: 0,
+                        swing: 0
                     };
                     // Chord channel gets extra chordType param
                     if (i === 8) {
@@ -389,6 +456,12 @@
                 } else {
                     scGain.connect(this.synthBusGain);
                 }
+
+                // Per-channel analyser (for VU meters)
+                const chAnalyser = this.ctx.createAnalyser();
+                chAnalyser.fftSize = 256;
+                eqHigh.connect(chAnalyser);
+                this.channelAnalysers.push(chAnalyser);
 
                 // Send routing: after eqHigh, also connect to reverb/delay sends
                 eqHigh.connect(reverbSend);
@@ -1368,7 +1441,8 @@
                         velocity: 0.8,
                         note: CHANNELS[ch].type === 'synth' ? 48 : 0,
                         open: false,
-                        duration: 1
+                        duration: 1,
+                        probability: 100
                     });
                 }
                 channels.push(channel);
@@ -1755,6 +1829,26 @@
             this.midiAccess = null;
             this.midiConnected = false;
 
+            // Phase 6: Ghost notes
+            this.ghostNotesEnabled = true;
+
+            // Phase 6: Scale lock
+            this.scaleRoot = 0;
+            this.scaleName = 'chromatic';
+            this.scaleSnap = false;
+
+            // Phase 6: Groove template
+            this.grooveTemplate = null;
+
+            // Phase 6: Perform mode
+            this.performMode = false;
+            this.performChannelPatterns = new Array(CHANNELS.length).fill(0);
+            this.performQueuedChanges = {}; // channelIdx -> patternIdx (queued for next bar)
+            this.performCells = []; // 2D array [ch][pat] of DOM elements
+
+            // Phase 6: Spectrum peak hold
+            this.spectrumPeaks = new Array(128).fill(0);
+
             // Synth editor
             this.synthEditorChannel = 0;
 
@@ -1803,6 +1897,7 @@
             this.initPianoCanvas();
             this.initAutomationCanvas();
             this.initArrangementCanvas();
+            this.buildPerformGrid();
             this.syncStepsDropdown();
         }
 
@@ -1848,8 +1943,11 @@
                 muteBtn.dataset.channel = ch;
                 const soloBtn = el('button', { className: 'seq-solo', text: 'S' });
                 soloBtn.dataset.channel = ch;
+                const euclBtn = el('button', { className: 'seq-eucl', text: 'E' });
+                euclBtn.dataset.channel = ch;
                 btns.appendChild(muteBtn);
                 btns.appendChild(soloBtn);
+                btns.appendChild(euclBtn);
 
                 info.appendChild(colorBar);
                 info.appendChild(name);
@@ -2364,6 +2462,15 @@
                 document.getElementById('swing-val').textContent = this.swing + '%';
             });
 
+            // Groove
+            const grooveSel = document.getElementById('groove-select');
+            if (grooveSel) {
+                grooveSel.addEventListener('change', (e) => {
+                    this.grooveTemplate = GROOVE_TEMPLATES[e.target.value] || null;
+                    this.autoSave();
+                });
+            }
+
             // Steps selector
             document.getElementById('steps-select').addEventListener('change', (e) => {
                 const newLen = parseInt(e.target.value);
@@ -2386,8 +2493,16 @@
                     document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
                     this.playMode = btn.dataset.mode;
+                    this.performMode = (btn.dataset.mode === 'perform');
                     this.songChainIndex = 0;
-                    this.setStatus('Mode: ' + (this.playMode === 'pattern' ? 'Pattern' : 'Song'));
+                    const modeNames = { pattern: 'Pattern', song: 'Song', perform: 'Perform' };
+                    this.setStatus('Mode: ' + (modeNames[this.playMode] || this.playMode));
+                    // Update perform indicator
+                    const indicator = document.getElementById('perform-mode-indicator');
+                    if (indicator) {
+                        indicator.textContent = this.performMode ? 'PERFORM MODE ACTIVE' : 'PERFORM MODE OFF';
+                        indicator.classList.toggle('active', this.performMode);
+                    }
                 });
             });
 
@@ -2506,6 +2621,7 @@
                     if (panel) panel.classList.add('active');
                     if (tab.dataset.tab === 'pianoroll') this.drawPianoRoll();
                     if (tab.dataset.tab === 'automation') this.drawAutomation();
+                    if (tab.dataset.tab === 'perform') this.buildPerformGrid();
                     this.updateMobilePianoVisibility();
                 });
             });
@@ -2603,6 +2719,11 @@
                     { label: 'Set Velocity 75%', action: () => { stepData.velocity = 0.75; this.updateStepDisplay(ch, s); this.autoSave(); }, disabled: !stepData.on },
                     { label: 'Set Velocity 100%', action: () => { stepData.velocity = 1.0; this.updateStepDisplay(ch, s); this.autoSave(); }, disabled: !stepData.on },
                 ];
+                items.push({ label: 'separator' });
+                items.push({ label: 'Probability 100%', action: () => { stepData.probability = 100; this.updateStepDisplay(ch, s); this.autoSave(); }, disabled: !stepData.on });
+                items.push({ label: 'Probability 75%', action: () => { stepData.probability = 75; this.updateStepDisplay(ch, s); this.autoSave(); }, disabled: !stepData.on });
+                items.push({ label: 'Probability 50%', action: () => { stepData.probability = 50; this.updateStepDisplay(ch, s); this.autoSave(); }, disabled: !stepData.on });
+                items.push({ label: 'Probability 25%', action: () => { stepData.probability = 25; this.updateStepDisplay(ch, s); this.autoSave(); }, disabled: !stepData.on });
                 if (ch === 2) {
                     items.push({ label: 'separator' });
                     items.push({ label: 'Toggle Open Hat', action: () => {
@@ -2893,6 +3014,56 @@
                 });
             }
 
+            // Ghost notes toggle
+            const ghostBtn = document.getElementById('btn-ghost');
+            if (ghostBtn) {
+                ghostBtn.addEventListener('click', () => {
+                    this.ghostNotesEnabled = !this.ghostNotesEnabled;
+                    ghostBtn.classList.toggle('active', this.ghostNotesEnabled);
+                    this.drawPianoRoll();
+                });
+            }
+
+            // Scale root select
+            const scaleRootSel = document.getElementById('scale-root');
+            if (scaleRootSel) {
+                scaleRootSel.addEventListener('change', (e) => {
+                    this.scaleRoot = parseInt(e.target.value);
+                    this.drawPianoRoll();
+                    this.autoSave();
+                });
+            }
+
+            // Scale name select
+            const scaleNameSel = document.getElementById('scale-name');
+            if (scaleNameSel) {
+                scaleNameSel.addEventListener('change', (e) => {
+                    this.scaleName = e.target.value;
+                    this.drawPianoRoll();
+                    this.autoSave();
+                });
+            }
+
+            // Scale snap toggle
+            const snapBtn = document.getElementById('btn-snap');
+            if (snapBtn) {
+                snapBtn.addEventListener('click', () => {
+                    this.scaleSnap = !this.scaleSnap;
+                    snapBtn.classList.toggle('active', this.scaleSnap);
+                    this.setStatus('Scale snap: ' + (this.scaleSnap ? 'ON' : 'OFF'));
+                    this.autoSave();
+                });
+            }
+
+            // Euclidean button click (delegated on sequencer grid)
+            document.querySelector('.sequencer-grid').addEventListener('click', (e) => {
+                const euclBtn = e.target.closest('.seq-eucl');
+                if (euclBtn) {
+                    const ch = parseInt(euclBtn.dataset.channel);
+                    this.showEuclideanPopup(ch, euclBtn);
+                }
+            });
+
             // Humanize button
             const humBtn = document.getElementById('btn-pat-humanize');
             if (humBtn) {
@@ -3126,7 +3297,8 @@
                     e.preventDefault();
                     const semitone = PIANO_KEYS[key];
                     const octaveOffset = e.shiftKey ? 1 : 0;
-                    const midiNote = (this.pianoRollOctave + 1 + octaveOffset) * 12 + semitone;
+                    let midiNote = (this.pianoRollOctave + 1 + octaveOffset) * 12 + semitone;
+                    if (this.scaleSnap) midiNote = snapToScale(midiNote, this.scaleRoot, this.scaleName);
                     this.audio.previewNote(this.pianoRollChannel, midiNote);
 
                     // If playing and recording, insert note at current step
@@ -3273,11 +3445,11 @@
             while (this.nextStepTime < this.audio.ctx.currentTime + this.scheduleAheadTime) {
                 this.currentStep = (this.currentStep + 1) % steps;
 
-                // Calculate swing
-                const swingOffset = (this.currentStep % 2 === 1) ? (this.swing / 100) * (60 / this.bpm / 4) : 0;
-                const stepTime = this.nextStepTime + swingOffset;
+                // Base swing offset (global)
+                const globalSwingOffset = (this.currentStep % 2 === 1) ? (this.swing / 100) * (60 / this.bpm / 4) : 0;
+                const stepTime = this.nextStepTime + globalSwingOffset;
 
-                // Play current step
+                // Play current step (per-channel timing handled inside)
                 this.playStep(this.currentStep, stepTime);
 
                 // Schedule UI update
@@ -3351,27 +3523,67 @@
 
         playStep(step, time) {
             const pat = this.state.getCurrentPattern();
-            const channels = pat.channels;
             const stepDurationSec = 60 / this.bpm / 4;
 
             // Apply automation BEFORE playing audio
             this.applyAutomation(pat, step, time);
 
+            // Perform mode: apply queued changes at bar boundary
+            if (this.performMode && step === 0) {
+                for (const chStr of Object.keys(this.performQueuedChanges)) {
+                    const chIdx = parseInt(chStr);
+                    this.performChannelPatterns[chIdx] = this.performQueuedChanges[chIdx];
+                }
+                this.performQueuedChanges = {};
+                // Update UI
+                setTimeout(() => this.updatePerformGrid(), 0);
+            }
+
             // Metronome click
             if (this.metronome.enabled) {
-                const beatsPerPattern = Math.max(4, pat.stepsCount / 4);
                 if (step % 4 === 0) {
                     this.audio.playClick(time, step === 0);
                 }
             }
 
+            // Groove template offset for this step
+            const grooveOffset = this.grooveTemplate ? (this.grooveTemplate[step % this.grooveTemplate.length] || 0) / 1000 : 0;
+
             for (let ch = 0; ch < CHANNELS.length; ch++) {
-                if (ch >= channels.length) break; // Safety for backward compat
+                // In perform mode, read from the assigned pattern for this channel
+                let channels;
+                if (this.performMode) {
+                    const patIdx = this.performChannelPatterns[ch];
+                    const performPat = this.state.patterns[patIdx];
+                    if (!performPat) continue;
+                    channels = performPat.channels;
+                } else {
+                    channels = pat.channels;
+                }
+
+                if (ch >= channels.length) break;
                 const stepData = channels[ch][step];
                 if (stepData && stepData.on) {
+                    // Step probability check
+                    const prob = stepData.probability !== undefined ? stepData.probability : 100;
+                    if (prob < 100 && Math.random() * 100 >= prob) continue;
+
+                    // Per-channel swing: if channel has its own swing, calculate offset
+                    let chSwing = this.audio.channelParams[ch].swing || 0;
+                    let chTime = time;
+                    if (chSwing > 0 && step % 2 === 1) {
+                        // Replace global swing with per-channel swing
+                        const globalSwingOffset = (this.swing / 100) * stepDurationSec;
+                        const perChSwingOffset = (chSwing / 100) * stepDurationSec;
+                        chTime = time - globalSwingOffset + perChSwingOffset;
+                    }
+
+                    // Add groove offset
+                    chTime += grooveOffset;
+
                     const isOpen = (ch === 2) ? stepData.open : false;
                     const noteLength = (stepData.duration || 1) * stepDurationSec;
-                    this.audio.playChannel(ch, time, stepData.velocity, stepData.note, isOpen, noteLength);
+                    this.audio.playChannel(ch, chTime, stepData.velocity, stepData.note, isOpen, noteLength);
                 }
             }
         }
@@ -3490,6 +3702,7 @@
 
             stepEl.classList.toggle('on', stepData.on);
             stepEl.classList.toggle('open-hat', ch === 2 && stepData.on && stepData.open);
+            stepEl.classList.toggle('prob-step', stepData.on && (stepData.probability !== undefined ? stepData.probability : 100) < 100);
 
             // Show note name for synth channels
             if (CHANNELS[ch].type === 'synth' && stepData.on) {
@@ -3555,11 +3768,18 @@
             ctx.fillStyle = '#0d0d1a';
             ctx.fillRect(0, 0, w, h);
 
-            // Grid rows
+            // Grid rows (with scale highlighting)
+            const baseNote = (this.pianoRollOctave + 1) * 12;
             for (let i = 0; i < rows; i++) {
                 const noteIdx = (23 - i) % 12;
                 const isBlack = BLACK_KEYS.includes(noteIdx);
-                ctx.fillStyle = isBlack ? '#111122' : '#151528';
+                const midiNoteForRow = baseNote + (rows - 1 - i);
+                const inScale = isInScale(midiNoteForRow, this.scaleRoot, this.scaleName);
+                if (!inScale && this.scaleName !== 'chromatic') {
+                    ctx.fillStyle = isBlack ? '#0a0a14' : '#0e0e1c';
+                } else {
+                    ctx.fillStyle = isBlack ? '#111122' : '#151528';
+                }
                 ctx.fillRect(0, i * rowH, w, rowH);
 
                 if (noteIdx === 0) {
@@ -3582,11 +3802,35 @@
                 ctx.stroke();
             }
 
-            // Draw notes with duration
+            // Ghost notes: draw other synth channels' notes semi-transparently
             const channels = this.state.getCurrentPatternChannels();
             const ch = this.pianoRollChannel;
+            if (this.ghostNotesEnabled) {
+                for (let gch = 5; gch < CHANNELS.length; gch++) {
+                    if (gch === ch) continue;
+                    if (gch >= channels.length) continue;
+                    const ghostColor = CHANNELS[gch].color;
+                    for (let s = 0; s < steps; s++) {
+                        const gStep = channels[gch][s];
+                        if (gStep.on) {
+                            const gNoteOffset = gStep.note - baseNote;
+                            if (gNoteOffset >= 0 && gNoteOffset < rows) {
+                                const gRow = rows - 1 - gNoteOffset;
+                                const gDur = gStep.duration || 1;
+                                const gNoteW = Math.min(gDur, steps - s) * colW;
+                                ctx.fillStyle = ghostColor;
+                                ctx.globalAlpha = 0.15;
+                                ctx.fillRect(s * colW + 1, gRow * rowH + 1, gNoteW - 2, rowH - 2);
+                                ctx.globalAlpha = 1;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Draw notes with duration
+            // channels, ch, baseNote already set above
             if (ch >= channels.length) return; // Safety
-            const baseNote = (this.pianoRollOctave + 1) * 12;
             const color = CHANNELS[ch].color;
 
             for (let s = 0; s < steps; s++) {
@@ -3729,9 +3973,12 @@
 
             if (step < 0 || step >= steps || midiNote < 0 || midiNote > 127) return;
 
+            // Scale snap
+            const snappedNote = this.scaleSnap ? snapToScale(midiNote, this.scaleRoot, this.scaleName) : midiNote;
+
             // Track last click position for paste offset
             this.pianoRollLastClickStep = step;
-            this.pianoRollLastClickNote = midiNote;
+            this.pianoRollLastClickNote = snappedNote;
 
             // Selection mode
             if (this.pianoRollSelMode) {
@@ -3749,7 +3996,7 @@
             const ch = this.pianoRollChannel;
             const stepData = channels[ch][step];
 
-            if (stepData.on && stepData.note === midiNote) {
+            if (stepData.on && stepData.note === snappedNote) {
                 // Toggle off
                 this.state.pushUndo();
                 stepData.on = false;
@@ -3761,9 +4008,9 @@
                 this.state.pushUndo();
                 this.pianoRollDragging = true;
                 this.pianoRollDragStep = step;
-                this.pianoRollDragNote = midiNote;
+                this.pianoRollDragNote = snappedNote;
                 this.pianoRollDragDuration = 1;
-                this.audio.previewNote(ch, midiNote);
+                this.audio.previewNote(ch, snappedNote);
             }
         }
 
@@ -4184,6 +4431,11 @@
                 version: 5,
                 bpm: this.bpm,
                 swing: this.swing,
+                grooveTemplate: this.grooveTemplate ? Object.keys(GROOVE_TEMPLATES).find(k => GROOVE_TEMPLATES[k] === this.grooveTemplate) || 'none' : 'none',
+                scaleRoot: this.scaleRoot,
+                scaleName: this.scaleName,
+                scaleSnap: this.scaleSnap,
+                ghostNotesEnabled: this.ghostNotesEnabled,
                 patterns: JSON.parse(JSON.stringify(this.state.patterns)),
                 currentPattern: this.state.currentPattern,
                 songChain: [...this.state.songChain],
@@ -4192,7 +4444,8 @@
                 sidechainAmount: this.audio.sidechainAmount,
                 sidechainRelease: this.audio.sidechainRelease,
                 sidechainSource: this.audio.sidechainSource,
-                metronome: { enabled: this.metronome.enabled, volume: this.metronome.volume }
+                metronome: { enabled: this.metronome.enabled, volume: this.metronome.volume },
+                performChannelPatterns: [...this.performChannelPatterns]
             };
         }
 
@@ -4363,6 +4616,54 @@
                 document.getElementById('btn-metronome').classList.toggle('active', this.metronome.enabled);
             }
 
+            // Phase 6: Groove template
+            if (data.grooveTemplate && GROOVE_TEMPLATES[data.grooveTemplate]) {
+                this.grooveTemplate = GROOVE_TEMPLATES[data.grooveTemplate];
+                const grooveSel = document.getElementById('groove-select');
+                if (grooveSel) grooveSel.value = data.grooveTemplate;
+            } else {
+                this.grooveTemplate = null;
+            }
+
+            // Phase 6: Scale lock
+            if (typeof data.scaleRoot === 'number') this.scaleRoot = data.scaleRoot;
+            if (data.scaleName) this.scaleName = data.scaleName;
+            if (typeof data.scaleSnap === 'boolean') this.scaleSnap = data.scaleSnap;
+            if (typeof data.ghostNotesEnabled === 'boolean') this.ghostNotesEnabled = data.ghostNotesEnabled;
+
+            // Update scale UI elements
+            const rootSel = document.getElementById('scale-root');
+            if (rootSel) rootSel.value = this.scaleRoot;
+            const scaleSel = document.getElementById('scale-name');
+            if (scaleSel) scaleSel.value = this.scaleName;
+            const snapBtn = document.getElementById('btn-snap');
+            if (snapBtn) snapBtn.classList.toggle('active', this.scaleSnap);
+            const ghostBtn = document.getElementById('btn-ghost');
+            if (ghostBtn) ghostBtn.classList.toggle('active', this.ghostNotesEnabled);
+
+            // Phase 6: Perform channel patterns
+            if (data.performChannelPatterns) {
+                this.performChannelPatterns = data.performChannelPatterns;
+            }
+
+            // Phase 6: Add swing default to channelParams
+            for (let i = 0; i < this.audio.channelParams.length; i++) {
+                const p = this.audio.channelParams[i];
+                if (p.swing === undefined) p.swing = 0;
+            }
+
+            // Phase 6: Add probability default to all steps in all patterns
+            for (let p = 0; p < this.state.patterns.length; p++) {
+                const pat = this.state.patterns[p];
+                for (let ch = 0; ch < pat.channels.length; ch++) {
+                    for (let s = 0; s < pat.channels[ch].length; s++) {
+                        if (pat.channels[ch][s].probability === undefined) {
+                            pat.channels[ch][s].probability = 100;
+                        }
+                    }
+                }
+            }
+
             this.syncStepsDropdown();
             this.buildStepIndicators();
             this.buildSequencerGrid();
@@ -4409,21 +4710,52 @@
 
                 if (!this.audio.initialized) return;
 
-                // Frequency bars
+                // Frequency bars (128 bars, taller, with peak hold)
                 const freqData = this.audio.getAnalyserData();
                 if (freqData) {
-                    const barCount = 64;
-                    const barWidth = w / barCount;
+                    const barCount = 128;
+                    const labelWidth = 32;
+                    const barAreaW = w - labelWidth;
+                    const barWidth = barAreaW / barCount;
                     const step = Math.floor(freqData.length / barCount);
 
                     for (let i = 0; i < barCount; i++) {
                         const val = freqData[i * step] / 255;
-                        const barH = val * h * 0.9;
+                        const barH = val * h * 0.95;
 
                         // Color gradient
-                        const hue = (i / barCount) * 60 + 10; // orange to yellow
+                        const hue = (i / barCount) * 60 + 10;
                         ctx.fillStyle = 'hsla(' + hue + ', 100%, 60%, ' + (0.3 + val * 0.7) + ')';
-                        ctx.fillRect(i * barWidth, h - barH, barWidth - 1, barH);
+                        ctx.fillRect(labelWidth + i * barWidth, h - barH, barWidth - 1, barH);
+
+                        // Peak hold
+                        if (val > (this.spectrumPeaks[i] || 0)) {
+                            this.spectrumPeaks[i] = val;
+                        } else {
+                            this.spectrumPeaks[i] = Math.max(0, (this.spectrumPeaks[i] || 0) - 0.005);
+                        }
+                        const peakY = h - this.spectrumPeaks[i] * h * 0.95;
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                        ctx.fillRect(labelWidth + i * barWidth, peakY, barWidth - 1, 1);
+                    }
+
+                    // dB scale labels on left
+                    ctx.fillStyle = 'rgba(136, 136, 160, 0.6)';
+                    ctx.font = '8px Courier New';
+                    ctx.textAlign = 'right';
+                    const dbLevels = [0, -12, -24, -48];
+                    for (const db of dbLevels) {
+                        const lin = Math.pow(10, db / 20);
+                        const y = h - lin * h * 0.95;
+                        if (y >= 0 && y <= h) {
+                            ctx.fillText(db + 'dB', labelWidth - 4, y + 3);
+                            ctx.strokeStyle = 'rgba(136, 136, 160, 0.15)';
+                            ctx.lineWidth = 0.5;
+                            ctx.beginPath();
+                            ctx.moveTo(labelWidth, y);
+                            ctx.lineTo(w, y);
+                            ctx.stroke();
+                        }
                     }
                 }
 
@@ -4443,12 +4775,28 @@
                     ctx.stroke();
                 }
 
-                // Update mixer VUs
-                if (this.playing && freqData) {
-                    for (let i = 0; i < this.mixerVUs.length; i++) {
-                        const idx = Math.floor((i / this.mixerVUs.length) * freqData.length);
-                        const val = freqData[idx] / 255;
-                        this.mixerVUs[i].style.height = (val * 100) + '%';
+                // Update mixer VUs using per-channel analysers
+                if (this.audio.channelAnalysers.length > 0) {
+                    for (let i = 0; i < Math.min(this.mixerVUs.length, CHANNELS.length); i++) {
+                        const analyser = this.audio.channelAnalysers[i];
+                        if (!analyser) continue;
+                        const data = new Uint8Array(analyser.frequencyBinCount);
+                        analyser.getByteTimeDomainData(data);
+                        // Calculate RMS
+                        let sum = 0;
+                        for (let j = 0; j < data.length; j++) {
+                            const v = (data[j] - 128) / 128;
+                            sum += v * v;
+                        }
+                        const rms = Math.sqrt(sum / data.length);
+                        const peak = Math.min(1, rms * 4); // Scale up for visibility
+                        this.mixerVUs[i].style.height = (peak * 100) + '%';
+                        // Clip indicator
+                        if (peak > 0.95) {
+                            this.mixerVUs[i].style.background = 'linear-gradient(to top, var(--accent-red), var(--accent-red))';
+                        } else {
+                            this.mixerVUs[i].style.background = '';
+                        }
                     }
                 } else if (!this.playing) {
                     for (let i = 0; i < this.mixerVUs.length; i++) {
@@ -5864,6 +6212,11 @@
                         { label: 'Set Velocity 75%', action: () => { stepData.velocity = 0.75; this.updateStepDisplay(ch, s); this.autoSave(); }, disabled: !stepData.on },
                         { label: 'Set Velocity 100%', action: () => { stepData.velocity = 1.0; this.updateStepDisplay(ch, s); this.autoSave(); }, disabled: !stepData.on },
                     ];
+                    items.push({ label: 'separator' });
+                    items.push({ label: 'Probability 100%', action: () => { stepData.probability = 100; this.updateStepDisplay(ch, s); this.autoSave(); }, disabled: !stepData.on });
+                    items.push({ label: 'Probability 75%', action: () => { stepData.probability = 75; this.updateStepDisplay(ch, s); this.autoSave(); }, disabled: !stepData.on });
+                    items.push({ label: 'Probability 50%', action: () => { stepData.probability = 50; this.updateStepDisplay(ch, s); this.autoSave(); }, disabled: !stepData.on });
+                    items.push({ label: 'Probability 25%', action: () => { stepData.probability = 25; this.updateStepDisplay(ch, s); this.autoSave(); }, disabled: !stepData.on });
                     if (ch === 2) {
                         items.push({ label: 'separator' });
                         items.push({ label: 'Toggle Open Hat', action: () => {
@@ -5893,6 +6246,175 @@
                     e.preventDefault();
                     this.handleAutomationRightClick(e);
                 }, 600);
+            }
+        }
+
+        // ---- Euclidean Sequencer Popup ----
+        showEuclideanPopup(ch, anchorEl) {
+            // Remove existing popup
+            const existing = document.querySelector('.eucl-popup');
+            if (existing) existing.remove();
+
+            const rect = anchorEl.getBoundingClientRect();
+            const steps = this.state.getSteps();
+
+            const popup = el('div', { className: 'eucl-popup' });
+            popup.style.left = rect.right + 8 + 'px';
+            popup.style.top = rect.top + 'px';
+
+            const title = el('label', { text: 'EUCLIDEAN - ' + CHANNELS[ch].name });
+            title.style.fontSize = '11px';
+            title.style.color = CHANNELS[ch].color;
+            popup.appendChild(title);
+
+            const closeBtn = el('button', { className: 'eucl-close-btn', text: 'x' });
+            closeBtn.addEventListener('click', () => popup.remove());
+            popup.appendChild(closeBtn);
+
+            // Hits slider
+            const hitsRow = el('div', { className: 'eucl-row' });
+            const hitsLabel = el('label', { text: 'Hits' });
+            const hitsSlider = el('input', { type: 'range', min: '0', max: String(steps), value: '4' });
+            const hitsVal = el('span', { className: 'eucl-val', text: '4' });
+            hitsSlider.addEventListener('input', () => { hitsVal.textContent = hitsSlider.value; });
+            hitsRow.appendChild(hitsLabel);
+            hitsRow.appendChild(hitsSlider);
+            hitsRow.appendChild(hitsVal);
+            popup.appendChild(hitsRow);
+
+            // Rotation slider
+            const rotRow = el('div', { className: 'eucl-row' });
+            const rotLabel = el('label', { text: 'Rotate' });
+            const rotSlider = el('input', { type: 'range', min: '0', max: String(steps - 1), value: '0' });
+            const rotVal = el('span', { className: 'eucl-val', text: '0' });
+            rotSlider.addEventListener('input', () => { rotVal.textContent = rotSlider.value; });
+            rotRow.appendChild(rotLabel);
+            rotRow.appendChild(rotSlider);
+            rotRow.appendChild(rotVal);
+            popup.appendChild(rotRow);
+
+            // Apply button
+            const applyBtn = el('button', { className: 'eucl-apply-btn', text: 'APPLY' });
+            applyBtn.addEventListener('click', () => {
+                const hits = parseInt(hitsSlider.value);
+                const rotation = parseInt(rotSlider.value);
+                let pattern = euclidean(hits, steps);
+                // Rotate
+                if (rotation > 0) {
+                    pattern = pattern.slice(rotation).concat(pattern.slice(0, rotation));
+                }
+                // Apply to channel
+                this.state.pushUndo();
+                const channels = this.state.getCurrentPatternChannels();
+                for (let s = 0; s < steps; s++) {
+                    channels[ch][s].on = pattern[s] || false;
+                }
+                this.buildSequencerGrid();
+                this.drawPianoRoll();
+                this.autoSave();
+                this.updateUndoRedoButtons();
+                this.setStatus('Euclidean pattern applied: ' + hits + '/' + steps);
+                popup.remove();
+            });
+            popup.appendChild(applyBtn);
+
+            document.body.appendChild(popup);
+
+            // Close when clicking outside
+            const closeHandler = (e) => {
+                if (!popup.contains(e.target) && e.target !== anchorEl) {
+                    popup.remove();
+                    document.removeEventListener('pointerdown', closeHandler);
+                }
+            };
+            setTimeout(() => document.addEventListener('pointerdown', closeHandler), 0);
+        }
+
+        // ---- Perform Mode Grid ----
+        buildPerformGrid() {
+            const container = document.getElementById('perform-content');
+            if (!container) return;
+            while (container.firstChild) container.removeChild(container.firstChild);
+
+            // Toolbar
+            const toolbar = el('div', { className: 'perform-toolbar' });
+            const indicator = el('span', { className: 'perform-mode-indicator' + (this.performMode ? ' active' : ''), text: this.performMode ? 'PERFORM MODE ACTIVE' : 'PERFORM MODE OFF' });
+            indicator.id = 'perform-mode-indicator';
+            toolbar.appendChild(indicator);
+            const helpText = el('span', { className: 'keyboard-hint', text: 'Click cells to assign patterns per channel. Changes apply at next bar.' });
+            toolbar.appendChild(helpText);
+            container.appendChild(toolbar);
+
+            // Grid
+            const grid = el('div', { className: 'perform-grid' });
+
+            // Header row
+            grid.appendChild(el('div', { className: 'perform-header', text: '' })); // empty corner
+            for (let p = 0; p < NUM_PATTERNS; p++) {
+                grid.appendChild(el('div', { className: 'perform-header', text: 'P' + (p + 1) }));
+            }
+
+            this.performCells = [];
+            for (let ch = 0; ch < CHANNELS.length; ch++) {
+                // Row label
+                const label = el('div', { className: 'perform-row-label' });
+                const colorDot = el('div');
+                colorDot.style.width = '8px';
+                colorDot.style.height = '8px';
+                colorDot.style.borderRadius = '50%';
+                colorDot.style.backgroundColor = CHANNELS[ch].color;
+                colorDot.style.flexShrink = '0';
+                label.appendChild(colorDot);
+                label.appendChild(el('span', { text: CHANNELS[ch].name }));
+                label.style.color = CHANNELS[ch].color;
+                grid.appendChild(label);
+
+                const rowCells = [];
+                for (let p = 0; p < NUM_PATTERNS; p++) {
+                    const cell = el('button', { className: 'perform-cell', text: String(p + 1) });
+                    cell.dataset.channel = ch;
+                    cell.dataset.pattern = p;
+                    if (this.performChannelPatterns[ch] === p) {
+                        cell.classList.add('active');
+                    }
+                    cell.style.borderColor = PATTERN_COLORS[p];
+                    cell.addEventListener('click', () => {
+                        if (this.playing && this.performMode) {
+                            // Queue change for next bar
+                            this.performQueuedChanges[ch] = p;
+                            // Mark as queued
+                            rowCells.forEach(c => c.classList.remove('queued'));
+                            cell.classList.add('queued');
+                        } else {
+                            // Apply immediately
+                            this.performChannelPatterns[ch] = p;
+                            rowCells.forEach(c => c.classList.remove('active', 'queued'));
+                            cell.classList.add('active');
+                        }
+                        this.autoSave();
+                    });
+                    rowCells.push(cell);
+                    grid.appendChild(cell);
+                }
+                this.performCells.push(rowCells);
+            }
+
+            container.appendChild(grid);
+        }
+
+        updatePerformGrid() {
+            if (!this.performCells || this.performCells.length === 0) return;
+            for (let ch = 0; ch < CHANNELS.length; ch++) {
+                if (!this.performCells[ch]) continue;
+                for (let p = 0; p < NUM_PATTERNS; p++) {
+                    const cell = this.performCells[ch][p];
+                    if (!cell) continue;
+                    cell.classList.toggle('active', this.performChannelPatterns[ch] === p);
+                    // Clear queued if it was applied
+                    if (!this.performQueuedChanges.hasOwnProperty(ch)) {
+                        cell.classList.remove('queued');
+                    }
+                }
             }
         }
 
