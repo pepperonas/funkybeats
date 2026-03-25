@@ -35,6 +35,15 @@
 ![Glide](https://img.shields.io/badge/Glide-303%20Style-00ff87?style=flat-square)
 ![Chord Types](https://img.shields.io/badge/Chords-Maj%2FMin%2F7th%2Fmin7-ff6bb5?style=flat-square)
 ![Samples](https://img.shields.io/badge/Samples-WAV%2FMP3%20Import-64ffda?style=flat-square)
+![Ghost Notes](https://img.shields.io/badge/Ghost%20Notes-Piano%20Roll-bb86fc?style=flat-square)
+![Groove Pool](https://img.shields.io/badge/Groove-MPC%2F808%2FHuman-ff6b35?style=flat-square)
+![Scale Lock](https://img.shields.io/badge/Scale%20Lock-8%20Scales-00ff87?style=flat-square)
+![Euclidean](https://img.shields.io/badge/Euclidean-Sequencer-4fc3f7?style=flat-square)
+![Probability](https://img.shields.io/badge/Step-Probability-ffd93d?style=flat-square)
+![Spectrum](https://img.shields.io/badge/Spectrum-Analyzer-ff4757?style=flat-square)
+![Clip Launcher](https://img.shields.io/badge/Clip-Launcher-ff6bb5?style=flat-square)
+![AI Generate](https://img.shields.io/badge/AI-Track%20Generator-bb86fc?style=flat-square)
+![Lines of Code](https://img.shields.io/badge/Code-10%2C000%20Lines-222240?style=flat-square)
 ![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-ff69b4?style=flat-square)
 ![Made with Love](https://img.shields.io/badge/Made%20with-Love-red?style=flat-square)
 
@@ -71,6 +80,8 @@ Click any step in the sequencer to hear the sound. Press **Space** to play.
 - **8 independent patterns** with copy/paste/clear
 - Drag-to-paint: click and drag across steps to toggle multiple
 - Sound preview on step activation -- hear the sound when you place it
+- **Euclidean sequencer**: Bjorklund algorithm generates optimal patterns per channel (hits + rotation)
+- **Step probability**: 25-100% chance per step, visual dashed border for probabilistic steps
 - Mute/Solo per channel
 - Open HiHat toggle (Shift+Click) with closed-hat choke
 - Live playhead with step indicators
@@ -78,12 +89,14 @@ Click any step in the sequencer to hear the sound. Press **Space** to play.
 ### Piano Roll
 
 - Canvas-based note editor for all melodic channels (Bass, Lead, Pad, Chord, Stab, Organ)
+- **Ghost Notes**: see other channels' notes transparently in the background (toggle GHOST button)
+- **Scale Lock**: select root note (C-B) + scale (Major, Minor, Dorian, Mixolydian, Pentatonic, Blues, Harmonic Minor) -- non-scale notes dimmed, SNAP button quantizes input
 - **Variable note length**: drag right to extend notes across steps
 - **Velocity lane**: bottom 60px for per-note velocity editing via click/drag
 - **Zoom**: Ctrl+Wheel to zoom, Shift+Wheel to scroll
 - **Selection mode**: click-drag to select, Ctrl+C/V to copy/paste notes
 - Octave navigation (1-7 range)
-- QWERTY keyboard input (Z-M = C-B, Shift = octave up)
+- QWERTY keyboard input (Z-M = C-B, Shift = octave up, respects scale snap)
 
 ### Automation Lanes
 
@@ -108,7 +121,7 @@ Click any step in the sequencer to hear the sound. Press **Space** to play.
 - Volume fader + stereo pan per channel
 - **3-band EQ** per channel (Low 80Hz / Mid 1kHz / High 8kHz, +/-12dB)
 - **Per-channel reverb/delay sends**
-- VU meters with green-yellow-red gradient
+- **Real VU meters** with per-channel AnalyserNodes, peak hold, and clip indicators
 - Mute/Solo per channel
 - **DRUMS bus** and **SYNTHS bus** with independent compressors
 - Master channel with master fader
@@ -144,12 +157,28 @@ Click any step in the sequencer to hear the sound. Press **Space** to play.
 - Playback position indicator
 - Context menus for editing
 
+### Clip Launcher / Perform Mode
+
+- **PERFORM** tab with 8x11 grid (8 patterns x 11 channels)
+- Click cells to assign channels to different patterns -- Kick from Pattern 1, Bass from Pattern 3
+- Changes are quantized to bar boundaries for seamless transitions
+- Three playback modes: **PAT** (single pattern), **SONG** (arrangement), **PERF** (clip launcher)
+- Live DJ-style performance mixing like Ableton Session View
+
+### Spectrum Analyzer
+
+- **128-bar FFT** frequency display with peak-hold lines
+- **Per-channel VU meters** with real AnalyserNode data (not simulated)
+- dB scale labels (0, -12, -24, -48 dB)
+- **Clip indicators**: flash red when signal exceeds threshold
+- Continuous animation loop for real-time visual feedback
+
 ### Song Mode
 
 - Pattern chain with loop toggle
 - Click slots to cycle patterns 1-8
 - Add/Remove/Clear controls
-- Switch between Pattern and Song playback modes
+- Switch between Pattern, Song, and Perform playback modes
 
 ### Transport
 
@@ -157,6 +186,8 @@ Click any step in the sequencer to hear the sound. Press **Space** to play.
 - BPM 60-200 with direct input
 - **Tap Tempo** (T key or TAP button)
 - Swing 0-100%
+- **Groove Pool**: MPC, TR-808, Human, Lazy, Push groove templates with per-step timing offsets
+- **Per-channel swing**: each channel can override global swing for independent groove feel
 - **Metronome** with dedicated audio path (bypasses effects)
 - Pattern selector (8 slots) with copy/paste/clear tools
 
@@ -174,6 +205,7 @@ Click any step in the sequencer to hear the sound. Press **Space** to play.
 - **Context menus**: right-click on steps, notes, and arrangement blocks
 - **Keyboard shortcuts help**: press ? for full shortcut overlay
 - **Preset browser** with search and tag filtering
+- **AI Track Generator**: describe a track in natural language, Claude generates it (password-protected backend)
 
 ---
 
@@ -377,20 +409,20 @@ FunkyBeats is fully responsive and touch-optimized:
 
 ## Project Structure
 
-Three files, zero dependencies.
+Three files, zero dependencies, ~10,000 lines of code.
 
 ```
 funkybeats/
-  index.html    Structure, transport, tabs, effects rack
-  style.css     FL Studio dark theme, responsive, mobile
-  app.js        Audio engine, sequencer, 60 presets, all features
+  index.html    Structure, transport, 7 tabs, effects rack (509 lines)
+  style.css     FL Studio dark theme, responsive, mobile (2,847 lines)
+  app.js        Audio engine, sequencer, 60 presets, all features (6,615 lines)
 ```
 
 ### Classes in app.js
 
-- `AudioEngine` -- Web Audio node graph, 11 synth voices, effects chain, bus routing, sidechain, sample manager
-- `SequencerState` -- 8 patterns with variable length, undo/redo, clipboard, song chain, automation data, serialization
-- `FunkyBeatsApp` -- UI construction, event binding, scheduler, visualizer, save/load, all user interactions
+- `AudioEngine` -- Web Audio node graph, 11 synth voices, per-channel AnalyserNodes, effects chain, bus routing, sidechain, sample manager
+- `SequencerState` -- 8 patterns with variable length, undo/redo, clipboard, song chain, automation, euclidean algorithm, step probability
+- `FunkyBeatsApp` -- UI construction, event binding, scheduler with per-channel swing + groove templates, ghost notes, scale lock, clip launcher, AI integration, visualizer, save/load
 
 ---
 

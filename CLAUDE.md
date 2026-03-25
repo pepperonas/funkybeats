@@ -91,6 +91,16 @@ scp index.html app.js style.css root@69.62.121.168:/var/www/funkybeats.celox.io/
 
 - **Sound preview on step click**: `previewStepSound()` method calls `audio.init()` then `audio.playChannel()`. Must handle first-click AudioContext initialization.
 - **Variable pattern length**: Never use a hardcoded step count. Always call `this.state.getSteps()` for the current pattern's length.
+- **Per-channel swing**: Scheduler applies per-channel swing from `channelParams[ch].swing`, falling back to global swing when 0. Groove templates add per-step ms offsets on top.
+- **Step probability**: Each step has a `probability` field (0-100). Scheduler checks `Math.random() * 100 < probability` before playing.
+- **Ghost notes**: `drawPianoRoll()` renders other synth channels at alpha 0.15 when `ghostNotesEnabled` is true.
+- **Scale lock**: `isInScale(midiNote)` and `snapToScale(midiNote)` helpers use `SCALES` constant. Piano roll dims non-scale rows.
+- **Euclidean sequencer**: `euclidean(hits, steps)` implements Bjorklund algorithm. Returns boolean array.
+- **Clip launcher**: `performChannelPatterns[]` maps each channel to a pattern index. Scheduler reads per-channel patterns in perform mode. Changes queued until bar boundary.
 - **UI rebuilds**: When pattern length or channel count changes, call `buildSequencerGrid()`, `buildStepIndicators()`, `drawPianoRoll()` etc. to rebuild the DOM.
-- **Canvas rendering**: Piano roll, automation, and arrangement all use HTML5 Canvas with manual coordinate math. DPR-aware via `resizeCanvases()`.
+- **Canvas rendering**: Piano roll, automation, arrangement, and spectrum all use HTML5 Canvas. DPR-aware via `resizeCanvases()`.
 - **Mobile responsive**: CSS media queries at 768px and 480px breakpoints. Bottom fixed tab bar on mobile. Hamburger menu hides secondary controls.
+
+## AI Backend
+
+API server at `/opt/funkybeats-api/` on VPS (not in repo). Password hash in `.env`. Uses Claude CLI (`--model haiku --tools ""`) via shell wrapper. Compact JSON format converted to full v5 project server-side.
