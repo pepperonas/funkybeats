@@ -6535,7 +6535,8 @@
                 status.className = 'ai-status';
 
                 try {
-                    const endpoint = aiMode === 'generate' ? '/api/generate' : '/api/modify';
+                    const apiBase = window.location.hostname === 'funkybeats.celox.io' ? '' : 'https://funkybeats.celox.io';
+                    const endpoint = apiBase + (aiMode === 'generate' ? '/api/generate' : '/api/modify');
                     const bodyData = { password, prompt };
                     if (aiMode === 'modify') {
                         bodyData.currentProject = self.serializeProject();
