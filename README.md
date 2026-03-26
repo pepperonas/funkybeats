@@ -69,6 +69,8 @@ xdg-open index.html    # Linux
 
 Click any step in the sequencer to hear the sound. Press **Space** to play.
 
+Or try the live version: **https://funkybeats.celox.io**
+
 ---
 
 ## Feature Overview
@@ -207,6 +209,56 @@ Click any step in the sequencer to hear the sound. Press **Space** to play.
 - **Preset browser** with search and tag filtering
 - **AI Track Generator**: describe a track in natural language, Claude generates it (password-protected backend)
 
+### AI Track Generator
+
+- Click the purple **AI** button in the transport bar to open the generator
+- **New Track**: describe a genre, BPM, mood, and instrumentation -- Claude generates a complete project
+- **Edit Current**: describe changes to apply to your current project ("make the bass funkier", "add off-beat claps")
+- Password-protected: backend runs Claude Code CLI on a VPS, no API keys in the frontend
+- Generation takes 15-30 seconds, results are previewed before applying
+- Supports all 11 channels, BPM, step patterns, note sequences, and velocity data
+
+### Groove Pool
+
+Groove templates apply per-step timing offsets that make patterns feel more human and genre-authentic.
+
+| Template | Character |
+|----------|-----------|
+| **MPC** | Classic Akai MPC swing feel, accents on off-beats |
+| **TR-808** | Roland 808 shuffle, subtle push on 8th notes |
+| **Human** | Random micro-timing variations for organic feel |
+| **Lazy** | Heavy late off-beats, laid-back groove |
+| **Push** | Early off-beats, driving forward momentum |
+
+Each channel can also have its own swing value that overrides the global swing -- so the HiHat can shuffle differently from the kick.
+
+### Scale Lock
+
+| Scale | Notes | Best for |
+|-------|-------|----------|
+| Major | 1 2 3 4 5 6 7 | Euphoric disco, pop house |
+| Minor | 1 2 b3 4 5 b6 b7 | Deep house, dark disco |
+| Dorian | 1 2 b3 4 5 6 b7 | Funky house, jazz house |
+| Mixolydian | 1 2 3 4 5 6 b7 | Funk, boogie |
+| Pentatonic | 1 2 3 5 6 | Universal, safe melodies |
+| Blues | 1 b3 4 b5 5 b7 | Acid house, funk |
+| Harmonic Minor | 1 2 b3 4 5 b6 7 | Middle-eastern vibes, dramatic disco |
+
+Select root note + scale in the piano roll toolbar. Enable **SNAP** to auto-quantize all input to scale notes.
+
+### Euclidean Sequencer
+
+The Euclidean algorithm (Bjorklund) distributes N hits across M steps as evenly as possible. This generates rhythmic patterns found in music worldwide.
+
+| Hits | Steps | Pattern | Sounds like |
+|------|-------|---------|-------------|
+| 3 | 8 | x..x..x. | Cuban tresillo |
+| 4 | 16 | x...x...x...x... | Four on the floor |
+| 5 | 16 | x..x..x..x..x... | Bossa nova |
+| 7 | 16 | x.x.x.xx.x.x.xx | West African bell |
+
+Click the **E** button on any channel row, set hits and rotation, then apply.
+
 ---
 
 ## Audio Engine Architecture
@@ -237,11 +289,12 @@ Channel Gains (x11)
                                           |                      |
                                      Master Gain <---------------+
                                           |
-                                       Analyser
+                                       Analyser (Master)
                                           |
                                   AudioContext.destination
 
- Metronome Gain ---------> destination (bypasses all effects)
+ Per-Channel AnalyserNodes -----> VU meters + clip indicators
+ Metronome Gain ----------------> destination (bypasses all effects)
 ```
 
 ### Synth Voices (11 total)
@@ -395,7 +448,7 @@ FunkyBeats ships with 60 production-ready presets across 12 categories. Each pre
 
 FunkyBeats is fully responsive and touch-optimized:
 
-- **Bottom tab bar** on mobile (fixed, 6 tabs)
+- **Bottom tab bar** on mobile (fixed, 7 tabs: SEQ/PIANO/MIX/SYNTH/AUTO/SONG/PERF)
 - **Touch-friendly targets** (44px minimum)
 - **On-screen piano keyboard** for note input without QWERTY
 - **Pinch-to-zoom** on piano roll
@@ -413,9 +466,9 @@ Three files, zero dependencies, ~10,000 lines of code.
 
 ```
 funkybeats/
-  index.html    Structure, transport, 7 tabs, effects rack (509 lines)
-  style.css     FL Studio dark theme, responsive, mobile (2,847 lines)
-  app.js        Audio engine, sequencer, 60 presets, all features (6,615 lines)
+  index.html    Structure, transport, 7 tabs, effects rack (~510 lines)
+  style.css     FL Studio dark theme, responsive, mobile (~2,850 lines)
+  app.js        Audio engine, sequencer, 60 presets, all features (~6,620 lines)
 ```
 
 ### Classes in app.js
